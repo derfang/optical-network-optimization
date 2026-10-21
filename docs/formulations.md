@@ -236,13 +236,13 @@ flowchart TD
     Q --> E
 ```
 
-### Distance-Adaptive Modulation Rule
-Physical transmission impairments (attenuation, chromatic dispersion, amplified spontaneous emission) limit high-order QAM constellations to shorter physical distances:
+### Distance-Adaptive Modulation Rule (Dual-Polarization Coherent Transponders)
+Physical transmission impairments (attenuation, chromatic dispersion, amplified spontaneous emission) limit high-order QAM constellations to shorter physical reach. Using state-of-the-art DP-QAM coherent transponders:
 $$\text{Modulation}(L) = \begin{cases} 
-\text{16-QAM} & (200\text{ Gbps/channel}), & L \le 500\text{ km} \\
-\text{8-QAM} & (150\text{ Gbps/channel}), & 500 < L \le 1000\text{ km} \\
-\text{QPSK} & (100\text{ Gbps/channel}), & 1000 < L \le 2000\text{ km} \\
-\text{BPSK} & (50\text{ Gbps/channel}), & L > 2000\text{ km}
+\text{16-QAM} & (400\text{ Gbps/channel}), & L \le 600\text{ km} \\
+\text{8-QAM} & (300\text{ Gbps/channel}), & 600 < L \le 1200\text{ km} \\
+\text{QPSK} & (200\text{ Gbps/channel}), & 1200 < L \le 2400\text{ km} \\
+\text{BPSK} & (100\text{ Gbps/channel}), & L > 2400\text{ km}
 \end{cases}$$
 
 For a demand with volume $V\text{ Gbps}$, the number of bidirectional wavelength channels required is:
@@ -254,15 +254,15 @@ $$p^* = \arg\min_{p_k} \left( \min(\mathcal{W}_{\text{avail}}(p_k)) + N_{\text{r
 This policy packs traffic toward lower-numbered channels, conserving contiguous spectrum blocks and postponing network fragmentation.
 
 ### Behavioral Analysis & Findings
-1. **Linear Growth Phase ($N = 1 \dots 90$)**:
+1. **Extended Linear Growth Phase ($N = 1 \dots 180$)**:
    - $F_{\max}$ expands linearly as new optical channels are claimed.
-   - Zero blocking occurs as abundant channels ($160$ per link) accommodate diverse paths.
-2. **1% Blocking Threshold ($N = 109$)**:
-   - Reached at **Demand #109**, carrying **$46,188\text{ Gbps}$** ($46.2\text{ Tbps}$) with only **$617\text{ Gbps}$** blocked ($1.31\%$).
-   - $F_{\max}$ reaches channel index $111$.
-3. **Saturation Ceiling ($N > 120$)**:
-   - $F_{\max}$ saturates at the physical link limit ($159$, representing 160 active channels) on core bottleneck links.
-   - Overall blocking probability increases asymptotically as remaining network resources can only satisfy localized 1-hop requests.
+   - Zero blocking occurs across the first ~180 demands due to the double channel rate (400G 16-QAM), which reduces required optical channels by half.
+2. **1% Blocking Threshold ($N \approx 194 - 220$)**:
+   - Reached at **Demand #194**, successfully provisioning **$84,929\text{ Gbps}$** ($\approx 85\text{ Tbps}$) with only **$1,296\text{ Gbps}$** blocked ($1.50\%$).
+   - $F_{\max}$ reaches channel index $112$.
+3. **Saturation Ceiling ($N > 250$)**:
+   - Core links approach the $160$-channel hardware ceiling ($F_{\max} \to 159$).
+   - Total carried volume across 1,000 demands climbs to **$277.4\text{ Tbps}$**, demonstrating the spectral efficiency gains of coherent dual-polarization transponders.
 
 ---
 

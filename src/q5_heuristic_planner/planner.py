@@ -44,17 +44,17 @@ def compute_top_paths(network: nx.Graph, k: int = 3) -> dict:
 # 3. Distance-Adaptive Modulation & Bandwidth Helper Functions
 def modulation_level(length_km: float) -> str:
     """
-    Determines the highest feasible optical modulation format based on physical path length (km).
-      - L <= 500 km        -> 16-QAM (200 Gbps / channel)
-      - 500 < L <= 1000 km -> 8-QAM  (150 Gbps / channel)
-      - 1000 < L <= 2000   -> QPSK   (100 Gbps / channel)
-      - L > 2000 km        -> BPSK   (50 Gbps / channel)
+    Course Appendix Distance-Adaptive Modulation Reach Table:
+      - L <= 600 km        -> 16-QAM (400 Gbps / channel)
+      - 600 < L <= 1200 km -> 8-QAM  (300 Gbps / channel)
+      - 1200 < L <= 2400   -> QPSK   (200 Gbps / channel)
+      - L > 2400 km        -> BPSK   (100 Gbps / channel)
     """
-    if length_km <= 500:
+    if length_km <= 600:
         return "16-QAM"
-    elif length_km <= 1000:
+    elif length_km <= 1200:
         return "8-QAM"
-    elif length_km <= 2000:
+    elif length_km <= 2400:
         return "QPSK"
     else:
         return "BPSK"
@@ -66,12 +66,12 @@ def requst_bandwidth_finder(value_gbps: float, modulation: str) -> int:
     for a demand of `value_gbps` Gbps given the selected modulation format.
     """
     capacity_per_lambda = {
-        "16-QAM": 200,
-        "8-QAM": 150,
-        "QPSK": 100,
-        "BPSK": 50,
+        "16-QAM": 400,
+        "8-QAM": 300,
+        "QPSK": 200,
+        "BPSK": 100,
     }
-    rate = capacity_per_lambda.get(modulation, 50)
+    rate = capacity_per_lambda.get(modulation, 100)
     return math.ceil(value_gbps / rate)
 
 
