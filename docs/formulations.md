@@ -153,7 +153,49 @@ $$\min \quad W_{\text{high}}$$
 
 ## Question 4: Manycast RWA ILP
 
-*(LaTeX formulations to be populated)*
+### Problem Description
+In Manycast optical communication (common in data center synchronization, cloud storage replication, and distributed content delivery), a source node $s_r$ must communicate with any subset $D_r \subseteq C_r$ of $k_r$ candidate destination nodes ($|D_r| = k_r$). For each selected destination $d \in D_r$, a traffic volume of $\tau_r$ lightpaths must be provisioned. The optimization problem jointly selects the destination nodes, calculates the physical routes, and assigns wavelengths to minimize the maximum utilized wavelength index and total physical transmission distance.
+
+### Sets and Parameters
+- $V$: Set of optical nodes ($V = \{1, 2, \dots, 6\}$).
+- $\mathcal{E}$: Set of physical fiber links with physical distance weights $L_e$ (km).
+- $\mathcal{R}$: Set of manycast requests $r = (s_r, C_r, k_r, \tau_r)$, where:
+  - $s_r$: Source node.
+  - $C_r \subset V$: Set of candidate destination nodes.
+  - $k_r \le |C_r|$: Number of destinations that must be selected.
+  - $\tau_r$: Number of lightpaths required between $s_r$ and each chosen destination $d \in D_r$.
+- $\mathcal{P}_{r, d} = \{p_{r, d, 1}, p_{r, d, 2}, \dots\}$: Set of precomputed $K$-shortest physical paths between $s_r$ and candidate destination $d$.
+- $\mathcal{W} = \{1, 2, \dots, W_{\max}\}$: Candidate optical wavelength channels.
+- $X_{r, d, m}^e \in \{0, 1\}$: Path-edge incidence parameter ($1$ if path $p_{r, d, m}$ traverses link $e \in \mathcal{E}$; $0$ otherwise).
+
+### Decision Variables
+- $\delta_{r, d} \in \{0, 1\}$: Binary variable equal to $1$ if candidate destination $d \in C_r$ is selected for request $r$; $0$ otherwise.
+- $c_{r, d, m}^w \in \{0, 1\}$: Binary routing and wavelength assignment variable indicating whether candidate path $m \in \mathcal{P}_{r, d}$ on wavelength $w \in \mathcal{W}$ is established for pair $(s_r, d)$.
+- $U^w \in \{0, 1\}$: Binary activation variable equal to $1$ if wavelength index $w$ is active anywhere in the optical network.
+- $W_{\text{high}} \in \mathbb{Z}^+$: Integer variable denoting the highest wavelength index utilized.
+
+### Objective Function
+Minimize the weighted sum of active wavelength indices (with a secondary tie-breaker $\epsilon \ll 1$ minimizing total physical distance):
+$$\min \quad \sum_{w \in \mathcal{W}} w \cdot U^w + \epsilon \sum_{r \in \mathcal{R}} \sum_{d \in C_r} \sum_{m \in \mathcal{P}_{r, d}} \sum_{w \in \mathcal{W}} \text{dist}(p_{r, d, m}) \cdot c_{r, d, m}^w$$
+
+### Constraints
+
+1. **Manycast Destination Cardinality**:
+   For each request $r$, exactly $k_r$ destinations from candidate set $C_r$ must be chosen:
+   $$\sum_{d \in C_r} \delta_{r, d} = k_r, \quad \forall r \in \mathcal{R}$$
+
+2. **Traffic Demand Satisfaction**:
+   If candidate destination $d$ is selected ($\delta_{r, d} = 1$), exactly $\tau_r$ lightpaths must be provisioned across the candidate paths and wavelengths; if not selected, zero lightpaths are provisioned:
+   $$\sum_{m: p_{r, d, m} \in \mathcal{P}_{r, d}} \sum_{w \in \mathcal{W}} c_{r, d, m}^w = \tau_r \cdot \delta_{r, d}, \quad \forall r \in \mathcal{R}, \forall d \in C_r$$
+
+3. **Wavelength Clash / Link Capacity**:
+   On each physical link $e \in \mathcal{E}$, at most one lightpath can operate on wavelength $w$:
+   $$\sum_{r \in \mathcal{R}} \sum_{d \in C_r} \sum_{m: p_{r, d, m} \in \mathcal{P}_{r, d}} X_{r, d, m}^e \cdot c_{r, d, m}^w \le 1, \quad \forall e \in \mathcal{E}, \forall w \in \mathcal{W}$$
+
+4. **Wavelength Index Activation & Upper Bound**:
+   Couples lightpath allocations to the global wavelength indicators:
+   $$U^w \ge c_{r, d, m}^w, \quad \forall r \in \mathcal{R}, \forall d \in C_r, \forall m \in \mathcal{P}_{r, d}, \forall w \in \mathcal{W}$$
+   $$W_{\text{high}} \ge w \cdot U^w, \quad \forall w \in \mathcal{W}$$
 
 ---
 
