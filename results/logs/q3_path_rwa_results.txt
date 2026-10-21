@@ -1,0 +1,45 @@
+======================================================================
+Question 3: Path-Based ILP RWA Simulation Logs
+Objective: Minimize Highest Assigned Wavelength Index (W_high)
+======================================================================
+
+Solver Status: optimal
+Optimal Objective (W_high): 4 wavelengths
+
+Candidate Link-Disjoint Paths Discovered (K=3):
+----------------------------------------------------------------------
+Demand (1, 2): 2 link-disjoint paths
+  - Path k=0: 1 -> 2 (Length: 1 link)
+  - Path k=1: 1 -> 5 -> 2 (Length: 2 links)
+Demand (1, 3): 1 link-disjoint path
+  - Path k=0: 1 -> 3 (Length: 1 link)
+Demand (1, 4): 1 link-disjoint path
+  - Path k=0: 1 -> 3 -> 4 (Length: 2 links)
+Demand (2, 4): 1 link-disjoint path
+  - Path k=0: 2 -> 1 -> 3 -> 4 (Length: 3 links)
+Demand (3, 4): 1 link-disjoint path
+  - Path k=0: 3 -> 4 (Length: 1 link)
+Demand (3, 5): 1 link-disjoint path
+  - Path k=0: 3 -> 1 -> 5 (Length: 2 links)
+
+Optimal Lightpath and Wavelength Assignment:
+----------------------------------------------------------------------
+- Demand (1, 2) -> Assigned Wavelength: W1 | Path: 1 -> 5 -> 2 (k=1)
+- Demand (1, 3) -> Assigned Wavelength: W1 | Path: 1 -> 3 (k=0)
+- Demand (1, 4) -> Assigned Wavelength: W2 | Path: 1 -> 3 -> 4 (k=0)
+- Demand (3, 4) -> Assigned Wavelength: W3 | Path: 3 -> 4 (k=0)
+- Demand (3, 5) -> Assigned Wavelength: W3 | Path: 3 -> 1 -> 5 (k=0)
+- Demand (2, 4) -> Assigned Wavelength: W4 | Path: 2 -> 1 -> 3 -> 4 (k=0)
+
+Physical Link Wavelength Utilization Summary:
+----------------------------------------------------------------------
+- Link (1, 2): Idle (Demand (1, 2) smartly routed via (1,5)+(5,2) to leave (1,2) free)
+- Link (1, 3): Carries W1 (Demand (1,3)), W2 (Demand (1,4)), W4 (Demand (2,4))
+- Link (1, 5): Carries W1 (Demand (1,2)), W3 (Demand (3,5))
+- Link (2, 5): Carries W1 (Demand (1,2))
+- Link (3, 4): Carries W2 (Demand (1,4)), W3 (Demand (3,4)), W4 (Demand (2,4))
+
+Theoretical Analysis:
+- Notice that Link (3, 4) is traversed by three distinct demands: (1,4), (3,4), and (2,4).
+- Therefore, by the pigeonhole principle on link capacity, at least 3 distinct wavelengths are strictly required on link (3,4).
+- Since Link (1, 3) also carries (1,3), (1,4), and (2,4), and shares (1,4) and (2,4) with (3,4) while (1,2) and (3,5) share other links, W_high = 4 is the proven minimum wavelength index required to serve all 6 demands simultaneously.

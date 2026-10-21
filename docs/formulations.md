@@ -115,7 +115,39 @@ $$\max \quad \sum_{(s, d) \in K} \sum_{w \in W} y_{s, d, w}$$
 
 ## Question 3: Path-based ILP for RWA (Min Max Wavelength Index)
 
-*(LaTeX formulations to be populated)*
+### Problem Description
+Transitioning from link-flow formulation to path-based formulation. Candidate paths are precomputed using Yen's $K$-shortest link-disjoint path algorithm ($K=3$) for every traffic demand $(s, d)$. The objective is to assign exactly one lightpath and wavelength to each demand such that the maximum wavelength index used in the network ($W_{\text{high}}$) is minimized.
+
+### Sets and Parameters
+- $\mathcal{E}$: Set of physical undirected optical fiber links ($|\mathcal{E}| = 5$).
+- $\mathcal{D}$: Set of traffic demands $(s, d)$ where $t_{sd} = 1$.
+- $\mathcal{P}_{sd} = \{p_{sd, 1}, p_{sd, 2}, \dots\}$: Set of precomputed link-disjoint candidate paths for demand $(s, d)$ ($|\mathcal{P}_{sd}| \le K = 3$).
+- $\mathcal{W} = \{1, 2, \dots, W_{\max}\}$: Candidate wavelength index set.
+- $t_{sd}$: Traffic demand volume for $(s, d)$ (here, $t_{sd} = 1$).
+- $X_{sd, k}^l \in \{0, 1\}$: Path-link incidence parameter, equal to $1$ if candidate path $p_{sd, k}$ traverses physical link $l \in \mathcal{E}$; $0$ otherwise.
+
+### Decision Variables
+- $c_{sd, k}^w \in \{0, 1\}$: Binary variable indicating whether demand $(s, d) \in \mathcal{D}$ is routed along candidate path $p_{sd, k}$ on wavelength index $w \in \mathcal{W}$.
+- $W_{\text{high}} \in \mathbb{Z}^+$: Integer variable representing the maximum wavelength index utilized across the entire optical network.
+
+### Objective Function
+Minimize the maximum wavelength index:
+$$\min \quad W_{\text{high}}$$
+
+### Constraints
+
+1. **Demand Satisfaction**:
+   Each demand $(s, d) \in \mathcal{D}$ must be provisioned with its required number of lightpaths:
+   $$\sum_{k: p_{sd, k} \in \mathcal{P}_{sd}} \sum_{w \in \mathcal{W}} c_{sd, k}^w = t_{sd}, \quad \forall (s, d) \in \mathcal{D}$$
+
+2. **Link Capacity / Wavelength Clash**:
+   No two lightpaths traversing the same physical link $l \in \mathcal{E}$ may share the same wavelength index $w$:
+   $$\sum_{(s, d) \in \mathcal{D}} \sum_{k: p_{sd, k} \in \mathcal{P}_{sd}} X_{sd, k}^l \cdot c_{sd, k}^w \le 1, \quad \forall l \in \mathcal{E}, \forall w \in \mathcal{W}$$
+
+3. **Maximum Wavelength Index Bounding**:
+   $W_{\text{high}}$ must be greater than or equal to the wavelength index of every established lightpath:
+   $$W_{\text{high}} \ge w \cdot c_{sd, k}^w, \quad \forall (s, d) \in \mathcal{D}, \forall k: p_{sd, k} \in \mathcal{P}_{sd}, \forall w \in \mathcal{W}$$
+   $$W_{\text{high}} \ge 0$$
 
 ---
 
