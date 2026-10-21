@@ -19,6 +19,10 @@ from src.utils.q2_q3_data import (
     get_undirected_demands,
     build_nx_graph,
 )
+from src.utils.plotting import (
+    plot_composite_lightpaths_on_graph,
+    plot_wavelength_planes,
+)
 
 
 def solve_link_based_ilp(
@@ -224,3 +228,32 @@ if __name__ == "__main__":
                 )
 
     plot_q2_comparison(summary_results)
+
+    # Generate graph-level visualizations of lightpath routes for W=3 (H=1 and H=2)
+    G = build_nx_graph()
+    w3_h1 = summary_results["Undirected (W=3)\n[3 Colors]"]["H1"]
+    w3_h2 = summary_results["Undirected (W=3)\n[3 Colors]"]["H2"]
+
+    plot_composite_lightpaths_on_graph(
+        G,
+        NODE_POSITIONS,
+        w3_h1["served_details"],
+        title="Q2 Lightpath Routing on Topology: H = 1 (Max 1 Interm. Hop)",
+        save_path="results/figures/q2_graph_lightpaths_h1.png",
+    )
+    plot_composite_lightpaths_on_graph(
+        G,
+        NODE_POSITIONS,
+        w3_h2["served_details"],
+        title="Q2 Lightpath Routing on Topology: H = 2 (Max 2 Interm. Hops - Unlocks (2,4)!)",
+        save_path="results/figures/q2_graph_lightpaths_h2.png",
+    )
+    plot_wavelength_planes(
+        G,
+        NODE_POSITIONS,
+        w3_h2["served_details"],
+        num_wavelengths=3,
+        title="Q2 WDM Layered Wavelength Planes (H = 2, W = 3 Colors)",
+        save_path="results/figures/q2_graph_wavelength_planes_h2.png",
+    )
+    print("[INFO] Saved Q2 graph visualizations to results/figures/")

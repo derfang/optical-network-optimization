@@ -14,6 +14,10 @@ from src.utils.q2_q3_data import (
     NODE_POSITIONS,
     get_undirected_demands,
 )
+from src.utils.plotting import (
+    plot_composite_lightpaths_on_graph,
+    plot_wavelength_planes,
+)
 
 
 def get_link_disjoint_paths(G: nx.Graph, source: int, target: int, k: int = 3) -> list[list[int]]:
@@ -189,3 +193,22 @@ if __name__ == "__main__":
     print("=" * 65)
 
     plot_q3_allocation(result)
+
+    # Generate graph-level visualizations of lightpath routes and wavelength planes
+    G = build_nx_graph()
+    plot_composite_lightpaths_on_graph(
+        G,
+        NODE_POSITIONS,
+        result["routes"],
+        title="Q3 Path-Based RWA: All Lightpaths on Physical Topology (W_high = 4)",
+        save_path="results/figures/q3_graph_composite_lightpaths.png",
+    )
+    plot_wavelength_planes(
+        G,
+        NODE_POSITIONS,
+        result["routes"],
+        num_wavelengths=result["W_high"],
+        title="Q3 Path-Based RWA: Wavelength Planes (W1 - W4)",
+        save_path="results/figures/q3_graph_wavelength_planes.png",
+    )
+    print("[INFO] Saved Q3 graph visualizations to results/figures/")
