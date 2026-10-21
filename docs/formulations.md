@@ -205,9 +205,64 @@ The problem compares three routing generation strategies:
 
 ---
 
-## Question 5: Heuristic Network Planner
+## Question 5: Heuristic Network Planner (Distance-Adaptive RWA)
 
-*(Algorithm pseudo-code and formulation details to be populated)*
+### Problem Description
+Exact ILP formulations become computationally intractable for large-scale optical carrier backbones with hundreds of wavelength channels and thousands of dynamic/static traffic demands. Question 5 implements a semi-static heuristic optical network planner for the 12-Node, 20-Link German Backbone Network with $W = 160$ optical channels per link, using $K$-shortest path routing, distance-adaptive optical modulation formats, and a min-max first-fit channel allocation policy.
+
+### Simulation Architecture & Flowchart
+
+```mermaid
+flowchart TD
+    A["Start Simulation"] --> B["Build 12-Node German Network & Initialize 20x160 Link-Channel Matrix = -1"]
+    B --> C["Precompute Top K=3 Shortest Paths per Pair (i, j) via Yen's Algorithm"]
+    C --> D["Generate Random Demands: Source s, Dest d, Volume V in 100..800 Gbps"]
+    D --> E{"Next Demand Available?"}
+    E -- No --> Z["Plot F_max Curves & Terminate"]
+    E -- Yes --> F["For each of Top-3 Candidate Paths p_k:"]
+    F --> G["Compute Path Distance L_k & Select Modulation Level"]
+    G --> H["Compute Needed Channels: N_req = 2 * ceil(V / Capacity_mod)"]
+    H --> I["Query Available Wavelengths on Path p_k across all Links"]
+    I --> J{"len(Avail) >= N_req on any p_k?"}
+    J -- No --> K["Block Demand: blocked += V"]
+    J -- Yes --> L["Select Path Minimizing: min(Avail) + N_req - 1"]
+    L --> M["Allocate First N_req Free Channels on Selected Path & Update F_max"]
+    M --> N["assigned += V"]
+    K --> O{"blocked / (assigned+blocked) >= 1% for First Time?"}
+    N --> O
+    O -- Yes --> P["Snapshot 1% Blocking Curve & Log Traffic Stats"]
+    O -- No --> Q["Append Current F_max to Trajectory"]
+    P --> Q
+    Q --> E
+```
+
+### Distance-Adaptive Modulation Rule
+Physical transmission impairments (attenuation, chromatic dispersion, amplified spontaneous emission) limit high-order QAM constellations to shorter physical distances:
+$$\text{Modulation}(L) = \begin{cases} 
+\text{16-QAM} & (200\text{ Gbps/channel}), & L \le 500\text{ km} \\
+\text{8-QAM} & (150\text{ Gbps/channel}), & 500 < L \le 1000\text{ km} \\
+\text{QPSK} & (100\text{ Gbps/channel}), & 1000 < L \le 2000\text{ km} \\
+\text{BPSK} & (50\text{ Gbps/channel}), & L > 2000\text{ km}
+\end{cases}$$
+
+For a demand with volume $V\text{ Gbps}$, the number of bidirectional wavelength channels required is:
+$$N_{\text{channels}} = 2 \times \left\lceil \frac{V}{\text{Capacity}(\text{Modulation})} \right\rceil$$
+
+### Channel Packing Policy: Min-Max First-Fit
+Among all candidate paths $p_k \in \mathcal{P}_{sd}$ with sufficient free wavelengths, the heuristic chooses the path that minimizes the upper wavelength index:
+$$p^* = \arg\min_{p_k} \left( \min(\mathcal{W}_{\text{avail}}(p_k)) + N_{\text{req}} - 1 \right)$$
+This policy packs traffic toward lower-numbered channels, conserving contiguous spectrum blocks and postponing network fragmentation.
+
+### Behavioral Analysis & Findings
+1. **Linear Growth Phase ($N = 1 \dots 90$)**:
+   - $F_{\max}$ expands linearly as new optical channels are claimed.
+   - Zero blocking occurs as abundant channels ($160$ per link) accommodate diverse paths.
+2. **1% Blocking Threshold ($N = 109$)**:
+   - Reached at **Demand #109**, carrying **$46,188\text{ Gbps}$** ($46.2\text{ Tbps}$) with only **$617\text{ Gbps}$** blocked ($1.31\%$).
+   - $F_{\max}$ reaches channel index $111$.
+3. **Saturation Ceiling ($N > 120$)**:
+   - $F_{\max}$ saturates at the physical link limit ($159$, representing 160 active channels) on core bottleneck links.
+   - Overall blocking probability increases asymptotically as remaining network resources can only satisfy localized 1-hop requests.
 
 ---
 

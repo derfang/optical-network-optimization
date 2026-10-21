@@ -1,0 +1,40 @@
+======================================================================
+Question 5: Heuristic Optical Network Planner Simulation Results
+======================================================================
+
+Topology: 12-Node, 20-Link German Backbone Network
+Link Capacity: 160 Wavelength Channels per Bidirectional Link
+Traffic Model: 1,000 Random Static Demands (Uniform 100 - 800 Gbps, seed=42)
+Routing & Modulation: Top-3 Shortest Simple Paths with Distance-Adaptive Modulation
+Allocation Policy: Min-Max Channel Index First-Fit
+
+1% Blocking Threshold Statistics:
+----------------------------------------------------------------------
+- Point of 1% Blocking: Reached at Demand #109
+- Successfully Provisioned Traffic: 46,188 Gbps (46.19 Tbps)
+- Blocked Traffic Volume: 617 Gbps
+- Instantaneous Blocking Ratio: 1.31%
+- Maximum Channel Index Used (F_max) at 1% Blocking: 111 (out of 160 channels)
+
+Full Traffic Load Statistics (1,000 Demands):
+----------------------------------------------------------------------
+- Total Attempted Demands: 1,000 requests
+- Total Assigned Traffic Volume: 172,351 Gbps (172.35 Tbps)
+- Total Blocked Traffic Volume: 279,788 Gbps (279.79 Tbps)
+- Overall Traffic Blocking Probability: 61.88%
+- Capacity Saturation Channel: F_max reached 159 (100% of the 160 channels utilized on critical backbone links)
+
+Key Behavioral Phases Observed:
+----------------------------------------------------------------------
+1. Linear Growth Phase (Demands 1 to ~90):
+   - F_max increases almost linearly with incoming requests.
+   - Zero blocking is observed.
+   - The first-fit min-max heuristic packs lightpaths tightly onto lower-index channels.
+
+2. Onset of Fragmentation & Bottlenecks (Demands 90 to 120):
+   - Dense central links (e.g., links around nodes 4, 6, 8, 10) begin experiencing localized spectrum clashing.
+   - At demand #109, the 1% blocking threshold is triggered with 46.2 Tbps carried.
+
+3. Saturation & Ceiling Phase (Demands 120 to 1,000):
+   - F_max hits the 160-channel hardware ceiling (channel index 159).
+   - Network enters asymptotic saturation where newly arriving multi-hop requests are rejected unless they happen to match isolated idle edge links.
