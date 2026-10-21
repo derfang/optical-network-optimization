@@ -58,7 +58,58 @@ $$\max \quad Z_{\text{ILP}} = \frac{0.08 a + 0.20 b}{10}$$
 
 ## Question 2: Link-based ILP for RWA (Max Served Requests)
 
-*(LaTeX formulations to be populated)*
+### Problem Description
+Given a physical optical topology graph $G = (V, E)$ and a static traffic demand matrix $A_{|V| \times |V|}$, route and assign wavelengths to lightpath requests without wavelength converters (wavelength continuity constraint) to maximize total served traffic requests, subject to a maximum hop limit $H$.
+
+### Sets and Parameters
+- $V$: Set of optical network nodes ($|V| = 5$).
+- $E$: Set of physical fiber links: $E = \{(1, 2), (1, 3), (1, 5), (2, 5), (3, 4)\}$.
+- $A$: Set of directed fiber arcs: $A = \{(u, v), (v, u) \mid \{u, v\} \in E\}$.
+- $W$: Set of available optical wavelengths per link: $W = \{1, 2, \dots, |W|\}$.
+- $K$: Set of active connection requests $(s, d)$ where $A[s, d] = 1$.
+- $H$: Maximum allowable hop count parameter.
+  - *Intermediate Hops Interpretation*: Path contains at most $H$ intermediate nodes $\implies \text{max\_links} = H + 1$.
+  - *Total Links Interpretation*: Path traverses at most $H$ physical links $\implies \text{max\_links} = H$.
+
+### Decision Variables
+- $y_{s, d, w} \in \{0, 1\}$: Binary variable equal to $1$ if connection request $(s, d) \in K$ is served on wavelength $w \in W$; $0$ otherwise.
+- $f_{s, d, w}^{u, v} \in \{0, 1\}$: Binary routing variable equal to $1$ if lightpath $(s, d)$ on wavelength $w$ traverses directed arc $(u, v) \in A$; $0$ otherwise.
+
+### Objective Function
+Maximize the total number of successfully established lightpath requests:
+$$\max \quad \sum_{(s, d) \in K} \sum_{w \in W} y_{s, d, w}$$
+
+### Constraints
+
+1. **Single Wavelength Allocation per Demand**:
+   Each admitted connection request is assigned to at most one optical channel:
+   $$\sum_{w \in W} y_{s, d, w} \le 1, \quad \forall (s, d) \in K$$
+
+2. **Flow Conservation & Wavelength Continuity**:
+   Ensures end-to-end lightpath continuity on the same wavelength $w$ across intermediate transparent optical nodes (no wavelength conversion):
+   $$\sum_{v: (u, v) \in A} f_{s, d, w}^{u, v} - \sum_{v: (v, u) \in A} f_{s, d, w}^{v, u} = \begin{cases} 
+   y_{s, d, w}, & u = s \\ 
+   -y_{s, d, w}, & u = d \\ 
+   0, & \forall u \in V \setminus \{s, d\} 
+   \end{cases} \quad \forall (s, d) \in K, \forall w \in W$$
+   Additionally, inflow at source $s$ and outflow at destination $d$ are strictly zero:
+   $$\sum_{v: (v, s) \in A} f_{s, d, w}^{v, s} = 0, \quad \sum_{v: (d, v) \in A} f_{s, d, w}^{d, v} = 0, \quad \forall (s, d) \in K, \forall w \in W$$
+
+3. **Subtour & Self-Loop Elimination**:
+   Precludes cyclic flow across non-terminal nodes:
+   $$\sum_{v: (u, v) \in A} f_{s, d, w}^{u, v} \le y_{s, d, w}, \quad \forall u \in V \setminus \{d\}, \forall (s, d) \in K, \forall w \in W$$
+
+4. **Maximum Hop Bound Constraint**:
+   Constrains path length according to $H$:
+   $$\sum_{(u, v) \in A} f_{s, d, w}^{u, v} \le L_{\max} \cdot y_{s, d, w}, \quad \forall (s, d) \in K, \forall w \in W$$
+   where $L_{\max} = H + 1$ (for intermediate node limits) or $L_{\max} = H$ (for total link limits).
+
+5. **Wavelength Clash & Capacity Constraint**:
+   Two lightpaths sharing the same fiber cannot be assigned the same wavelength:
+   - *Directed Arcs*:
+     $$\sum_{(s, d) \in K} f_{s, d, w}^{u, v} \le 1, \quad \forall (u, v) \in A, \forall w \in W$$
+   - *Undirected Edges*:
+     $$\sum_{(s, d) \in K} \left( f_{s, d, w}^{u, v} + f_{s, d, w}^{v, u} \right) \le 1, \quad \forall \{u, v\} \in E, \forall w \in W$$
 
 ---
 
