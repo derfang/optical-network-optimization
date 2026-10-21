@@ -197,6 +197,12 @@ $$\min \quad \sum_{w \in \mathcal{W}} w \cdot U^w + \epsilon \sum_{r \in \mathca
    $$U^w \ge c_{r, d, m}^w, \quad \forall r \in \mathcal{R}, \forall d \in C_r, \forall m \in \mathcal{P}_{r, d}, \forall w \in \mathcal{W}$$
    $$W_{\text{high}} \ge w \cdot U^w, \quad \forall w \in \mathcal{W}$$
 
+### Path Generation Strategy Comparison
+The problem compares three routing generation strategies:
+1. **Single Best Shortest Path ($K = 1$)**: Uses only Dijkstra shortest physical paths. Minimizes latency ($573\text{ km}$), but cannot avoid bottleneck links, driving up spectrum index ($W_{\text{high}} = 6$).
+2. **Yen's $K$-Shortest Paths ($K = 2 / 3$)**: Evaluates up to $K$ shortest loopless paths. Provides the optimal engineering trade-off ($W_{\text{high}} = 5$, $606\text{ km}$, 160 ms runtime).
+3. **All Simple Paths**: Exhaustively generates all loopless paths. Compresses spectrum ($W_{\text{high}} = 3$) at the severe cost of exponential variable explosion ($1088$ variables) and doubled path distance ($1195\text{ km}$).
+
 ---
 
 ## Question 5: Heuristic Network Planner

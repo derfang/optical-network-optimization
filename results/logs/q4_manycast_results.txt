@@ -1,47 +1,34 @@
 ======================================================================
-Question 4: Manycast Routing and Wavelength Assignment (RWA) ILP Results
+Question 4: Manycast Routing and Wavelength Assignment (RWA)
+Comparative Analysis of Path Generation Strategies
 ======================================================================
 
-Topology: 6-Node Weighted Optical Network (9 Bidirectional Links)
-Solver Status: optimal
-Max Wavelength Index (W_high): 5 wavelengths
-Total Established Lightpaths: 16 lightpaths
-Total Routed Distance: 606 km
-
-Selected Destination Subsets:
+Strategy 1: Single Best Shortest Path Only (K = 1)
 ----------------------------------------------------------------------
-- Request #1: Source 1 (Candidates: [2, 5, 6], Required: k=2, Traffic Vol: 1)
-    -> Selected Destinations: [2, 5] (Avoided 6)
-- Request #2: Source 3 (Candidates: [1, 2, 5, 6], Required: k=3, Traffic Vol: 2)
-    -> Selected Destinations: [1, 2, 5] (Avoided 6 via 200km link)
-- Request #3: Source 4 (Candidates: [2, 3, 5], Required: k=2, Traffic Vol: 1)
-    -> Selected Destinations: [3, 5] (Avoided 2)
-- Request #4: Source 5 (Candidates: [1, 3, 4], Required: k=2, Traffic Vol: 2)
-    -> Selected Destinations: [1, 4] (Avoided 3)
-- Request #5: Source 6 (Candidates: [2, 3, 4], Required: k=2, Traffic Vol: 1)
-    -> Selected Destinations: [2, 4] (Avoided 3 via 200km link)
+- Candidate Paths Generated: 16 paths
+- Total Binary Decision Variables: 152
+- Solver Status: optimal
+- Max Wavelength Index (W_high): 6
+- Total Network Routed Distance: 573 km
+- Execution Runtime: 67.6 ms
+- Analysis: Strictly chooses the minimum physical distance route for every source-destination pair without considering wavelength clash or link congestion. Because alternative routes are not available, overlapping requests on shared links force the solver to allocate higher wavelength channels (up to W6).
 
-Established Lightpath Details:
+Strategy 2: Yen's K-Shortest Weighted Paths (K = 2 / K = 3 - Balanced)
 ----------------------------------------------------------------------
-1.  Req #1 (1 -> 2) | Wavelength W3 | Path: 1 -> 2              | Length: 23 km
-2.  Req #1 (1 -> 5) | Wavelength W4 | Path: 1 -> 2 -> 5         | Length: 38 km
-3.  Req #2 (3 -> 1) | Wavelength W4 | Path: 3 -> 1              | Length: 32 km
-4.  Req #2 (3 -> 1) | Wavelength W5 | Path: 3 -> 1              | Length: 32 km
-5.  Req #2 (3 -> 2) | Wavelength W4 | Path: 3 -> 2              | Length: 30 km
-6.  Req #2 (3 -> 2) | Wavelength W5 | Path: 3 -> 2              | Length: 30 km
-7.  Req #2 (3 -> 5) | Wavelength W3 | Path: 3 -> 2 -> 5         | Length: 45 km
-8.  Req #2 (3 -> 5) | Wavelength W4 | Path: 3 -> 4 -> 6 -> 5     | Length: 78 km
-9.  Req #3 (4 -> 3) | Wavelength W1 | Path: 4 -> 3              | Length: 35 km
-10. Req #3 (4 -> 5) | Wavelength W3 | Path: 4 -> 6 -> 5         | Length: 43 km
-11. Req #4 (5 -> 1) | Wavelength W1 | Path: 5 -> 2 -> 1         | Length: 38 km
-12. Req #4 (5 -> 1) | Wavelength W5 | Path: 5 -> 2 -> 1         | Length: 38 km
-13. Req #4 (5 -> 4) | Wavelength W1 | Path: 5 -> 6 -> 4         | Length: 43 km
-14. Req #4 (5 -> 4) | Wavelength W5 | Path: 5 -> 6 -> 4         | Length: 43 km
-15. Req #5 (6 -> 2) | Wavelength W2 | Path: 6 -> 5 -> 2         | Length: 28 km
-16. Req #5 (6 -> 4) | Wavelength W2 | Path: 6 -> 4              | Length: 30 km
+- Candidate Paths Generated: 32 paths
+- Total Binary Decision Variables: 280
+- Solver Status: optimal
+- Max Wavelength Index (W_high): 5
+- Total Network Routed Distance: 606 km (+5.7% vs. K=1)
+- Execution Runtime: 160.9 ms
+- Analysis: Optimal engineering trade-off. By providing K=2 shortest paths, the solver can choose short detours around congested fiber links, reducing peak wavelength usage from W6 to W5 while maintaining close to minimal propagation delay.
 
-Observations & Architectural Takeaways:
+Strategy 3: All Possible Simple Paths (Unconstrained Routing)
 ----------------------------------------------------------------------
-1. Avoidance of High-Cost Links: Link (3, 6) with weight 200 km is completely avoided by all sources. Requests needing communication between {3} and {5, 6} route via (3, 2, 5) or (3, 4, 6, 5) which are vastly shorter (45 km and 78 km).
-2. Traffic Load Balancing: Source 5 neatly divides its 4 lightpaths equally across its two outgoing incident links: (5, 2) carries 2 lightpaths, and (5, 6) carries 2 lightpaths.
-3. Spectrum Compaction: 16 lightpaths across 9 undirected physical edges are packed into only 5 wavelengths without a single wavelength collision.
+- Candidate Paths Generated: 133 paths (8.3x larger than K=1)
+- Total Binary Decision Variables: 1088 (7.2x larger than K=1)
+- Solver Status: optimal
+- Max Wavelength Index (W_high): 3
+- Total Network Routed Distance: 1195 km (+108.5% vs. K=1)
+- Execution Runtime: 710.7 ms (10.5x slower)
+- Analysis: The solver explores every possible topological path regardless of hop count or physical distance. While it manages to compress spectrum usage down to W_high = 3, it does so by routing traffic through wildly convoluted loops (total network distance jumps to 1195 km), which increases optical signal attenuation, dispersion, and amplifier noise while dramatically inflating solver time and memory.

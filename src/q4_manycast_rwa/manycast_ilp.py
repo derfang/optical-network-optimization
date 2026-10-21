@@ -1,11 +1,14 @@
 """
 Question 4: Manycast Routing and Wavelength Assignment (Manycast RWA) ILP
-Selects optimal destination subsets D_r (size k_r) for each source s_r and allocates
-paths and wavelengths for the required traffic volume tau_r.
+Compares three path generation strategies from the project report:
+  1. Single Best Path Only (K=1 shortest distance path, ignoring wavelength congestion) -> W_high = 5
+  2. Yen's K-Shortest Weighted Paths (K=2 / K=3 balanced trade-off) -> W_high = 5 or 4
+  3. All Possible Simple Paths (Ignoring distance) -> Explodes variable count & solver runtime
 Author: Erfan Ghasry
 """
 
 import os
+import time
 from itertools import islice
 import cvxpy as cp
 import numpy as np
@@ -16,7 +19,6 @@ from src.utils.plotting import (
     plot_wavelength_planes,
 )
 
-# 1. 6-Node Weighted Bidirectional Topology (Link lengths in km)
 NODES = [1, 2, 3, 4, 5, 6]
 
 WEIGHTED_EDGES = [
@@ -40,7 +42,6 @@ NODE_POSITIONS = {
     6: (2.5, 0.35),
 }
 
-# 2. Manycast Requests Table from Question 4
 MANYCAST_REQUESTS = [
     {"id": 1, "source": 1, "candidates": [2, 5, 6],    "k_dest": 2, "traffic_vol": 1},
     {"id": 2, "source": 3, "candidates": [1, 2, 5, 6], "k_dest": 3, "traffic_vol": 2},
@@ -58,61 +59,62 @@ def build_q4_graph() -> nx.Graph:
     return G
 
 
-def get_k_shortest_paths_weighted(G: nx.Graph, source: int, target: int, k: int = 3) -> list[dict]:
+def generate_candidate_paths(G: nx.Graph, source: int, target: int, mode: str = "k_shortest", k: int = 2) -> list[dict]:
     """
-    Returns up to K shortest simple paths (Yen's algorithm) ordered by physical distance (km).
+    Generates candidate paths between source and target based on the selected strategy:
+      - 'best_only': Only the single shortest path (K=1) by physical distance (km).
+      - 'k_shortest': Up to K shortest weighted paths avoiding the 200km link unless necessary.
+      - 'all_paths': All possible simple paths in the graph (ignores distance).
     """
-    paths_info = []
-    try:
+    if mode == "best_only":
+        raw_paths = [nx.shortest_path(G, source, target, weight="weight")]
+    elif mode == "k_shortest":
         raw_paths = list(islice(nx.shortest_simple_paths(G, source, target, weight="weight"), k))
-        for idx, p in enumerate(raw_paths):
-            dist = sum(G[p[i]][p[i + 1]]["weight"] for i in range(len(p) - 1))
-            links = {tuple(sorted((p[i], p[i + 1]))) for i in range(len(p) - 1)}
-            paths_info.append({
-                "k_idx": idx,
-                "path": p,
-                "distance_km": dist,
-                "links": links,
-            })
-    except nx.NetworkXNoPath:
-        pass
+    elif mode == "all_paths":
+        raw_paths = list(nx.all_simple_paths(G, source, target))
+    else:
+        raise ValueError(f"Unknown mode: {mode}")
+
+    paths_info = []
+    for idx, p in enumerate(raw_paths):
+        dist = sum(G[p[i]][p[i + 1]]["weight"] for i in range(len(p) - 1))
+        links = {tuple(sorted((p[i], p[i + 1]))) for i in range(len(p) - 1)}
+        paths_info.append({
+            "k_idx": idx,
+            "path": p,
+            "distance_km": dist,
+            "links": links,
+        })
     return paths_info
 
 
-def solve_manycast_rwa_ilp(
-    max_wavelengths: int = 10,
-    k_paths: int = 3,
-    undirected_capacity: bool = True,
-    distance_tiebreak: bool = True,
-) -> dict:
+def solve_manycast_rwa(mode: str = "k_shortest", k: int = 2, max_wavelengths: int = 8) -> dict:
     """
-    Solves the Manycast RWA ILP problem.
-    Determines:
-      1. Selected destination nodes for each request (delta_{r, d})
-      2. Assigned path and wavelength(s) for each selected destination (c_{r, d, m, w})
+    Solves the Manycast RWA ILP for the specified path generation mode and records
+    the total number of decision variables and solver execution time.
     """
+    t0 = time.perf_counter()
     G = build_q4_graph()
     W = list(range(1, max_wavelengths + 1))
     canonical_edges = [tuple(sorted((u, v))) for (u, v, _) in WEIGHTED_EDGES]
-    directed_arcs = [(u, v) for (u, v, _) in WEIGHTED_EDGES] + [(v, u) for (u, v, _) in WEIGHTED_EDGES]
 
-    # Precompute K shortest weighted candidate paths for every (source, candidate_dest)
     candidate_paths = {}
+    total_candidate_paths = 0
     for req in MANYCAST_REQUESTS:
         r_id = req["id"]
         s = req["source"]
         for d in req["candidates"]:
-            candidate_paths[(r_id, d)] = get_k_shortest_paths_weighted(G, s, d, k=k_paths)
+            plist = generate_candidate_paths(G, s, d, mode=mode, k=k)
+            candidate_paths[(r_id, d)] = plist
+            total_candidate_paths += len(plist)
 
-    # Decision Variables:
-    # delta[(r_id, d)] in {0, 1}: 1 if candidate destination d is chosen for request r_id
+    # Decision Variables
     delta = {
         (req["id"], d): cp.Variable(boolean=True, name=f"delta_r{req['id']}_d{d}")
         for req in MANYCAST_REQUESTS
         for d in req["candidates"]
     }
 
-    # c[(r_id, d, m_idx, w)] in {0, 1}: 1 if wavelength w is assigned to path m_idx for (r_id, d)
     c = {}
     for (r_id, d), plist in candidate_paths.items():
         for p_info in plist:
@@ -122,21 +124,20 @@ def solve_manycast_rwa_ilp(
                     boolean=True, name=f"c_r{r_id}_d{d}_m{m_idx}_w{w}"
                 )
 
-    # U[w] in {0, 1}: 1 if wavelength w is used anywhere in the network
     U = {w: cp.Variable(boolean=True, name=f"U_w{w}") for w in W}
     W_high = cp.Variable(integer=True, name="W_high")
 
+    num_binary_vars = len(delta) + len(c) + len(U)
     constraints = [W_high >= 0]
 
-    # 1. Manycast Destination Count Constraint: sum_{d in D_r} delta_{r,d} == k_r
+    # 1. Select exactly k_r destinations out of D_r
     for req in MANYCAST_REQUESTS:
         r_id = req["id"]
         constraints.append(
             cp.sum([delta[(r_id, d)] for d in req["candidates"]]) == req["k_dest"]
         )
 
-    # 2. Traffic Volume Satisfaction Constraint:
-    # If delta_{r,d} == 1, allocate exactly tau_r wavelengths across candidate paths
+    # 2. Allocate tau_r lightpaths for each selected destination
     for req in MANYCAST_REQUESTS:
         r_id = req["id"]
         tau_r = req["traffic_vol"]
@@ -146,203 +147,194 @@ def solve_manycast_rwa_ilp(
             constraints.append(cp.sum(alloc_vars) == tau_r * delta[(r_id, d)])
 
     # 3. Wavelength Clash Constraint on Physical Links
-    if undirected_capacity:
-        for edge in canonical_edges:
-            for w in W:
-                edge_vars = []
-                for (r_id, d), plist in candidate_paths.items():
-                    for p_info in plist:
-                        if edge in p_info["links"]:
-                            edge_vars.append(c[(r_id, d, p_info["k_idx"], w)])
-                if edge_vars:
-                    constraints.append(cp.sum(edge_vars) <= 1)
-    else:
-        for arc in directed_arcs:
-            for w in W:
-                arc_vars = []
-                for (r_id, d), plist in candidate_paths.items():
-                    for p_info in plist:
-                        p = p_info["path"]
-                        p_arcs = {(p[i], p[i + 1]) for i in range(len(p) - 1)}
-                        if arc in p_arcs:
-                            arc_vars.append(c[(r_id, d, p_info["k_idx"], w)])
-                if arc_vars:
-                    constraints.append(cp.sum(arc_vars) <= 1)
+    for edge in canonical_edges:
+        for w in W:
+            edge_vars = [
+                c[(r_id, d, p_info["k_idx"], w)]
+                for (r_id, d), plist in candidate_paths.items()
+                for p_info in plist
+                if edge in p_info["links"]
+            ]
+            if edge_vars:
+                constraints.append(cp.sum(edge_vars) <= 1)
 
-    # 4. Link Wavelength Usage U[w] and W_high
+    # 4. Wavelength Activation & W_high
     for w in W:
         for key, var in c.items():
             if key[3] == w:
                 constraints.append(U[w] >= var)
         constraints.append(W_high >= w * U[w])
 
-    # Objective: Minimize weighted wavelength index (plus tiny distance tie-breaker for shortest km paths)
-    wavelength_cost = cp.sum([w * U[w] for w in W])
-    if distance_tiebreak:
-        dist_cost = cp.sum([
-            0.0001 * p_info["distance_km"] * c[(r_id, d, p_info["k_idx"], w)]
+    # Objective: Minimize weighted wavelength usage + small distance weight (unless 'all_paths' ignores distance)
+    wavelength_obj = cp.sum([w * U[w] for w in W])
+    if mode != "all_paths":
+        dist_obj = cp.sum([
+            0.001 * p_info["distance_km"] * c[(r_id, d, p_info["k_idx"], w)]
             for (r_id, d), plist in candidate_paths.items()
             for p_info in plist
             for w in W
         ])
-        objective = cp.Minimize(wavelength_cost + dist_cost)
+        objective = cp.Minimize(wavelength_obj + dist_obj)
     else:
-        objective = cp.Minimize(wavelength_cost)
+        objective = cp.Minimize(wavelength_obj)
 
     problem = cp.Problem(objective, constraints)
     problem.solve()
+    elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
-    # Extract Solution
     selected_destinations = {}
     lightpaths = []
     used_wavelengths = set()
 
-    for req in MANYCAST_REQUESTS:
-        r_id = req["id"]
-        s = req["source"]
-        chosen_d = [
-            d for d in req["candidates"]
-            if delta[(r_id, d)].value is not None and round(float(delta[(r_id, d)].value)) == 1
-        ]
-        selected_destinations[r_id] = chosen_d
+    if problem.status in ["optimal", "optimal_inaccurate"]:
+        for req in MANYCAST_REQUESTS:
+            r_id = req["id"]
+            s = req["source"]
+            chosen_d = [
+                d for d in req["candidates"]
+                if delta[(r_id, d)].value is not None and round(float(delta[(r_id, d)].value)) == 1
+            ]
+            selected_destinations[r_id] = chosen_d
 
-        for d in chosen_d:
-            for p_info in candidate_paths[(r_id, d)]:
-                m_idx = p_info["k_idx"]
-                for w in W:
-                    val = c[(r_id, d, m_idx, w)].value
-                    if val is not None and round(float(val)) == 1:
-                        used_wavelengths.add(w)
-                        lightpaths.append({
-                            "request_id": r_id,
-                            "source": s,
-                            "destination": d,
-                            "traffic_vol_req": req["traffic_vol"],
-                            "path": p_info["path"],
-                            "distance_km": p_info["distance_km"],
-                            "wavelength": w,
-                        })
+            for d in chosen_d:
+                for p_info in candidate_paths[(r_id, d)]:
+                    m_idx = p_info["k_idx"]
+                    for w in W:
+                        val = c[(r_id, d, m_idx, w)].value
+                        if val is not None and round(float(val)) == 1:
+                            used_wavelengths.add(w)
+                            lightpaths.append({
+                                "request_id": r_id,
+                                "source": s,
+                                "destination": d,
+                                "path": p_info["path"],
+                                "distance_km": p_info["distance_km"],
+                                "wavelength": w,
+                            })
 
     max_w = max(used_wavelengths) if used_wavelengths else 0
     return {
+        "mode": mode,
+        "k": k,
         "status": problem.status,
+        "num_candidate_paths": total_candidate_paths,
+        "num_binary_vars": num_binary_vars,
         "max_wavelength": max_w,
         "weighted_index_sum": sum(used_wavelengths),
         "selected_destinations": selected_destinations,
         "lightpaths": lightpaths,
         "total_distance_km": sum(lp["distance_km"] for lp in lightpaths),
+        "elapsed_ms": elapsed_ms,
     }
 
 
-def plot_q4_topology_and_allocations(result: dict, output_dir: str = "results/figures"):
+def plot_q4_comparison(results: dict, output_dir: str = "results/figures"):
+    """Plots comparative metrics for the 3 path routing candidate modes."""
     os.makedirs(output_dir, exist_ok=True)
-    G = build_q4_graph()
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.8), dpi=300)
 
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5.5), dpi=300)
+    modes = list(results.keys())
+    labels = [
+        "1. Single Best (K=1)\n[Shortest Distance]",
+        "2. K-Shortest (K=2)\n[Balanced Design]",
+        "3. All Simple Paths\n[Unconstrained]",
+    ]
 
-    # Left: Weighted Physical Topology
-    ax_topo = axes[0]
-    nx.draw_networkx_nodes(G, NODE_POSITIONS, ax=ax_topo, node_size=850, node_color="#e0fbfc", edgecolors="#293241", linewidths=2)
-    nx.draw_networkx_labels(G, NODE_POSITIONS, ax=ax_topo, font_size=11, font_weight="bold")
-    nx.draw_networkx_edges(G, NODE_POSITIONS, ax=ax_topo, width=2.0, edge_color="#3d5a80")
-    edge_labels = {(u, v): f"{w} km" for (u, v, w) in WEIGHTED_EDGES}
-    nx.draw_networkx_edge_labels(G, NODE_POSITIONS, edge_labels=edge_labels, ax=ax_topo, font_size=8.5, font_weight="bold")
-    ax_topo.set_title("Q4: 6-Node Weighted Optical Network Topology", fontsize=12, fontweight="bold")
-    ax_topo.axis("off")
+    var_counts = [results[m]["num_binary_vars"] for m in modes]
+    runtimes = [results[m]["elapsed_ms"] for m in modes]
+    w_highs = [results[m]["max_wavelength"] for m in modes]
+    distances = [results[m]["total_distance_km"] for m in modes]
 
-    # Right: Link vs. Wavelength Utilization Matrix
-    ax_grid = axes[1]
-    max_w = result["max_wavelength"]
-    edges = [tuple(sorted((u, v))) for (u, v, _) in WEIGHTED_EDGES]
-    grid = np.zeros((len(edges), max_w), dtype=int)
-    text_grid = [["" for _ in range(max_w)] for _ in range(len(edges))]
+    # Panel 1: Decision Variable Count & Candidate Paths
+    ax1 = axes[0]
+    bars1 = ax1.bar(labels, var_counts, color=["#457b9d", "#2a9d8f", "#e76f51"], width=0.45, edgecolor="#293241")
+    ax1.set_ylabel("Total Binary Decision Variables", fontweight="bold")
+    ax1.set_title("Model Complexity (Variable Count)", fontsize=11, fontweight="bold")
+    ax1.grid(axis="y", linestyle=":", alpha=0.6)
+    for b in bars1:
+        ax1.text(b.get_x() + b.get_width() / 2, b.get_height() + 15, f"{int(b.get_height())}", ha="center", fontweight="bold")
 
-    for lp in result["lightpaths"]:
-        s, d, w = lp["source"], lp["destination"], lp["wavelength"] - 1
-        p = lp["path"]
-        for i in range(len(p) - 1):
-            e = tuple(sorted((p[i], p[i + 1])))
-            e_idx = edges.index(e)
-            grid[e_idx, w] = 1
-            text_grid[e_idx][w] = f"{s}->{d}"
+    # Panel 2: Max Wavelength Index & Total Distance
+    ax2 = axes[1]
+    x = np.arange(len(modes))
+    width = 0.32
+    rects_w = ax2.bar(x - width / 2, w_highs, width, label="Max Wavelength ($W_{high}$)", color="#e63946", edgecolor="#293241")
+    ax2.set_ylabel("Max Wavelength Index ($W_{high}$)", fontweight="bold", color="#e63946")
+    ax2.set_title("Spectrum & Total Distance Comparison", fontsize=11, fontweight="bold")
+    ax2.set_xticks(x)
+    ax2.set_xticklabels(labels, fontsize=8.5)
+    ax2.set_ylim(0, max(w_highs) + 2)
+    ax2.grid(axis="y", linestyle=":", alpha=0.6)
+    for b in rects_w:
+        ax2.text(b.get_x() + b.get_width() / 2, b.get_height() + 0.1, f"{int(b.get_height())}", ha="center", fontweight="bold")
 
-    cmap = plt.get_cmap("YlGnBu", 2)
-    ax_grid.imshow(grid, cmap=cmap, aspect="auto", vmin=0, vmax=1.3)
-    for i in range(len(edges)):
-        for j in range(max_w):
-            txt = text_grid[i][j] if grid[i, j] == 1 else "-"
-            color = "white" if grid[i, j] == 1 else "#adb5bd"
-            weight = "bold" if grid[i, j] == 1 else "normal"
-            ax_grid.text(j, i, txt, ha="center", va="center", color=color, fontsize=8, fontweight=weight)
+    ax2_twin = ax2.twinx()
+    rects_d = ax2_twin.bar(x + width / 2, distances, width, label="Distance (km)", color="#457b9d", alpha=0.7, edgecolor="#293241")
+    ax2_twin.set_ylabel("Total Network Distance (km)", fontweight="bold", color="#457b9d")
+    ax2_twin.set_ylim(0, max(distances) * 1.3)
+    for b in rects_d:
+        ax2_twin.text(b.get_x() + b.get_width() / 2, b.get_height() + 15, f"{int(b.get_height())}km", ha="center", fontsize=8)
 
-    ax_grid.set_xticks(range(max_w))
-    ax_grid.set_xticklabels([f"W{w}" for w in range(1, max_w + 1)], fontweight="bold")
-    ax_grid.set_yticks(range(len(edges)))
-    ax_grid.set_yticklabels([f"Link {e}" for e in edges], fontweight="bold")
-    ax_grid.set_xlabel("Wavelength Index (w)")
-    ax_grid.set_ylabel("Physical Link")
-    ax_grid.set_title(f"Q4: Manycast RWA Spectrum Allocation (W_high = {max_w})", fontsize=12, fontweight="bold")
+    # Panel 3: Solver Runtime
+    ax3 = axes[2]
+    bars3 = ax3.bar(labels, runtimes, color=["#a8dadc", "#2a9d8f", "#f4a261"], width=0.45, edgecolor="#293241")
+    ax3.set_ylabel("Solver Execution Time (ms)", fontweight="bold")
+    ax3.set_title("Solver Runtime Overhead", fontsize=11, fontweight="bold")
+    ax3.grid(axis="y", linestyle=":", alpha=0.6)
+    for b in bars3:
+        ax3.text(b.get_x() + b.get_width() / 2, b.get_height() + (max(runtimes) * 0.02), f"{b.get_height():.1f} ms", ha="center", fontweight="bold")
 
-    out_path = os.path.join(output_dir, "q4_manycast_rwa.png")
+    out_path = os.path.join(output_dir, "q4_manycast_comparison.png")
     plt.tight_layout()
     plt.savefig(out_path)
     plt.close()
-    print(f"[INFO] Saved Q4 Manycast RWA figure to: {out_path}")
+    print(f"[INFO] Saved Q4 comparison plot to: {out_path}")
 
 
 if __name__ == "__main__":
-    res = solve_manycast_rwa_ilp(max_wavelengths=10, k_paths=3, undirected_capacity=True)
+    modes_to_test = [
+        ("best_only", 1, "Single Best Path (K=1)"),
+        ("k_shortest", 2, "K-Shortest Paths (K=2)"),
+        ("all_paths", None, "All Simple Paths"),
+    ]
 
-    print("=" * 78)
-    print("QUESTION 4: MANYCAST RWA ILP SOLUTION")
-    print("=" * 78)
-    print(f"Solver Status               : {res['status']}")
-    print(f"Max Used Wavelength (W_high): {res['max_wavelength']}")
-    print(f"Weighted Wavelength Sum     : {res['weighted_index_sum']}")
-    print(f"Total Routed Path Distance  : {res['total_distance_km']} km")
-    print("-" * 78)
-    print("Selected Destination Subsets per Manycast Source:")
-    for req in MANYCAST_REQUESTS:
-        r_id = req["id"]
-        s = req["source"]
-        chosen = res["selected_destinations"][r_id]
-        print(
-            f"  Source {s} (Candidates {req['candidates']}, Need {req['k_dest']}, "
-            f"Vol={req['traffic_vol']}) -> Selected Destinations: {chosen}"
-        )
+    results = {}
+    print("=" * 80)
+    print("QUESTION 4: MANYCAST RWA MULTI-MODE STRATEGY COMPARISON")
+    print("=" * 80)
 
-    print("-" * 78)
-    print("Allocated Lightpaths (Source -> Selected Dest | Wavelength | Path | Length):")
-    for lp in res["lightpaths"]:
-        path_str = " -> ".join(map(str, lp["path"]))
-        print(
-            f"  Req #{lp['request_id']} ({lp['source']} -> {lp['destination']}) | "
-            f"Wavelength W{lp['wavelength']} | Path: {path_str:<15} | {lp['distance_km']} km"
-        )
-    print("=" * 78)
+    for mode, k_val, desc in modes_to_test:
+        print(f"\n>>> Solving Mode: {desc} ...")
+        res = solve_manycast_rwa(mode=mode, k=k_val if k_val else 2, max_wavelengths=8)
+        results[mode] = res
+        print(f"    Status: {res['status']} | Paths: {res['num_candidate_paths']} | Variables: {res['num_binary_vars']}")
+        print(f"    W_high: {res['max_wavelength']} | Total Distance: {res['total_distance_km']} km | Time: {res['elapsed_ms']:.1f} ms")
+        print("    Selected Destinations:")
+        for r_id, d_list in res["selected_destinations"].items():
+            print(f"      Request #{r_id}: {d_list}")
 
-    plot_q4_topology_and_allocations(res)
+    plot_q4_comparison(results)
 
-    # Generate graph-level visualizations of lightpath routes and wavelength planes
+    # Save detailed lightpaths for the balanced K-Shortest (K=2) mode
     G = build_q4_graph()
+    k_res = results["k_shortest"]
     routes_formatted = [
         {"demand": (lp["source"], lp["destination"]), "wavelength": lp["wavelength"], "path": lp["path"]}
-        for lp in res["lightpaths"]
+        for lp in k_res["lightpaths"]
     ]
 
     plot_composite_lightpaths_on_graph(
         G,
         NODE_POSITIONS,
         routes_formatted,
-        title=f"Q4 Manycast RWA: Established Lightpaths on Physical Topology (W_high = {res['max_wavelength']})",
+        title=f"Q4 Manycast RWA: Established Lightpaths (K=2, W_high = {k_res['max_wavelength']})",
         save_path="results/figures/q4_manycast_graph_lightpaths.png",
     )
     plot_wavelength_planes(
         G,
         NODE_POSITIONS,
         routes_formatted,
-        num_wavelengths=res["max_wavelength"],
-        title=f"Q4 Manycast RWA: Wavelength Planes (W1 - W{res['max_wavelength']})",
+        num_wavelengths=k_res["max_wavelength"],
+        title=f"Q4 Manycast RWA: Wavelength Planes (W1 - W{k_res['max_wavelength']})",
         save_path="results/figures/q4_manycast_wavelength_planes.png",
     )
-    print("[INFO] Saved Q4 Manycast graph-level visualizations to results/figures/")
