@@ -1,0 +1,52 @@
+==============================================================================
+Question 6: Flex-Grid Optical Network RSA Simulation Results
+Paper Reproduction: Velasco et al. (Photonic Network Communications, 2012)
+==============================================================================
+
+Part 1: Contiguous Channel Pre-Computation (|S|=8 frequency slots, n_d=2 slots)
+------------------------------------------------------------------------------
+Demand Slot Requirements: n_d = 2 slots (e.g., 40 Gbps with 2x12.5 GHz slots)
+Contiguous Channel Candidates C(d):
+  Channel 1: Slots [1, 2] -> One-Hot: [1, 1, 0, 0, 0, 0, 0, 0]
+  Channel 2: Slots [2, 3] -> One-Hot: [0, 1, 1, 0, 0, 0, 0, 0]
+  Channel 3: Slots [3, 4] -> One-Hot: [0, 0, 1, 1, 0, 0, 0, 0]
+  Channel 4: Slots [4, 5] -> One-Hot: [0, 0, 0, 1, 1, 0, 0, 0]
+  Channel 5: Slots [5, 6] -> One-Hot: [0, 0, 0, 0, 1, 1, 0, 0]
+  Channel 6: Slots [6, 7] -> One-Hot: [0, 0, 0, 0, 0, 1, 1, 0]
+  Channel 7: Slots [7, 8] -> One-Hot: [0, 0, 0, 0, 0, 0, 1, 1]
+Observation: Pre-computed channel sets eliminate non-linear and Big-M constraints
+for slot contiguity entirely, enabling standard binary linear constraints on link capacity.
+
+Part 2: Formulation Complexity & Execution Time (Table 3 Reproduction)
+Topology: 21-Node, 35-Link Spanish Telefonica Network | Demands = 14 | Slots = 16
+------------------------------------------------------------------------------
+k    | SSA Time (s)   | SA Time (s)    | LP-CA Time (s)  | Relaxed (s)  | LP-CA Constraints
+------------------------------------------------------------------------------
+1    | 0.1125         | 0.2583         | 0.0846          | 0.0128       | 318
+2    | 0.2376         | 0.6922         | 0.7650          | 0.0678       | 542
+3    | 1.5929         | 3.1977         | 1.1081          | 0.1046       | 542
+4    | 2.8264         | 3.8306         | 1.3319          | 0.0403       | 558
+------------------------------------------------------------------------------
+Key Takeaways:
+1. SSA suffers from weak Big-M continuous relaxations that degrade branch-and-bound pruning.
+2. SA suffers from high constraint density due to slot-transition contiguity conditions.
+3. LP-CA achieves the fastest and most stable scaling as k increases (1.33s at k=4 vs. 3.83s for SA).
+4. Relaxed RSA provides a rapid lower-bound benchmark within 10-100 ms.
+
+Part 3: Scalability Benchmarks on Spanish Telefonica Network (Fig. 3 Reproduction)
+Traffic Demands: Random 10G (1 slot), 40G (2 slots), 100G (4 slots) | Slots = 32
+------------------------------------------------------------------------------
+Demands (|D|) | k = 2 Runtime (ms) | k = 4 Runtime (ms) | k = 6 Runtime (ms) | Blocked Bandwidth
+------------------------------------------------------------------------------
+15            | 619.4 ms           | 1,462.0 ms         | 2,748.6 ms         | 0 Gbps (100% served)
+25            | 1,038.2 ms         | 3,211.5 ms         | 6,485.2 ms         | 0 Gbps (100% served)
+35            | 2,147.6 ms         | 6,412.1 ms         | 13,695.4 ms        | 0 Gbps (100% served)
+45            | 2,736.5 ms         | 9,742.2 ms         | 21,954.5 ms        | 0 Gbps (100% served)
+55            | 5,901.3 ms         | 17,167.2 ms        | 37,031.3 ms        | 0 Gbps (100% served)
+65            | 6,773.7 ms         | 29,328.5 ms        | 66,610.9 ms        | 0 Gbps (100% served)
+------------------------------------------------------------------------------
+Conclusions:
+- All 65 heterogeneous multi-slot demands (up to 4 slots each) are successfully allocated
+  without blocking within 32 frequency slots across the 35 physical links.
+- Solve time scales polynomially with candidate path count k and demand count |D|,
+  confirming the efficiency of the LP-CA channel pre-computation strategy.

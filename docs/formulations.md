@@ -266,6 +266,65 @@ This policy packs traffic toward lower-numbered channels, conserving contiguous 
 
 ---
 
-## Question 6: Flex-Grid RSA / OFDM RMLSA Formulation
+## Question 6: Flex-Grid RSA / OFDM RMLSA Formulation (Velasco et al., 2012)
 
-*(LaTeX formulations to be populated)*
+### Paper Reference
+> **L. Velasco, M. Klinkowski, M. Ruiz, J. Comellas**, *"Modeling the routing and spectrum allocation problem for flexgrid optical networks,"* **Photonic Network Communications**, vol. 24, pp. 177-186, 2012.
+
+### 1. Problem Description & Flex-Grid Paradigm
+In Elastic Optical Networks (EONs) / Flex-Grid networks utilizing Optical Frequency Division Multiplexing (OFDM), the fixed 50 GHz WDM grid is replaced with a fine-grained spectrum slice structure (e.g. 12.5 GHz frequency slots). An optical connection request $d \in D$ requiring bandwidth $b_d\text{ Gbps}$ demands a contiguous block of $n_d$ frequency slots ($n_d \in \{1, 2, 4\}$ for 10, 40, 100 Gbps).
+
+The Routing and Spectrum Allocation (RSA) problem requires satisfying two fundamental physical constraints simultaneously:
+1. **Spectrum Continuity Constraint**: A lightpath must occupy the identical frequency slots on every link along its routed physical path (in transparent networks without all-optical spectrum converters).
+2. **Spectrum Contiguity Constraint**: The $n_d$ frequency slots allocated to demand $d$ must be strictly contiguous (adjacent in the optical spectrum domain).
+
+---
+
+### 2. Pre-computed Contiguous Channel Generation $C(d)$
+Rather than relying on complex Big-M integer constraints or quadratic adjacency formulations to enforce slot contiguity, the proposed **Link-Path Channel Assignment (LP-CA)** pre-computes all valid contiguous spectrum channels of width $n_d$ within the total optical slot grid $S = \{1, 2, \dots, |S|\}$:
+
+$$\mathcal{C}(d) = \left\{ [j, j + 1, \dots, j + n_d - 1] \mid j \in \{1, 2, \dots, |S| - n_d + 1\} \right\}$$
+
+The binary incidence parameter $\gamma_{c, s} \in \{0, 1\}$ indicates whether channel $c \in \mathcal{C}(d)$ contains frequency slot $s \in S$:
+$$\gamma_{c, s} = \begin{cases} 1, & \text{if slot } s \in c \\ 0, & \text{otherwise} \end{cases}$$
+
+---
+
+### 3. LP-CA Formulation (Eqs. 15-17 of Velasco et al.)
+
+#### Sets and Parameters
+- $G = (V, E)$: Optical network graph with nodes $V$ and fiber links $E$.
+- $D$: Set of connection demands. Each demand $d \in D$ has source $s_d$, target $t_d$, bit-rate $b_d$, and slot requirement $n_d$.
+- $P(d)$: Set of precomputed $k$-shortest candidate paths for demand $d$.
+- $\delta_{p, e} \in \{0, 1\}$: Path-link incidence parameter ($1$ if path $p$ uses link $e$; $0$ otherwise).
+- $S$: Set of available frequency slots on each fiber link ($|S| = 16$ or $32$).
+- $\mathcal{C}(d)$: Precomputed set of contiguous channels of width $n_d$.
+- $\gamma_{c, s} \in \{0, 1\}$: Binary channel-slot coincidence matrix.
+
+#### Decision Variables
+- $x_d \in \{0, 1\}$: Binary rejection variable equal to $1$ if demand $d$ is blocked; $0$ if served.
+- $y_{p, c} \in \{0, 1\}$: Binary assignment variable equal to $1$ if demand $d$ is served on candidate path $p \in P(d)$ using channel $c \in \mathcal{C}(d)$; $0$ otherwise.
+
+#### Objective Function
+Minimize total un-served traffic bandwidth ($\text{Gbps}$):
+$$\min \quad \Phi = \sum_{d \in D} b_d \cdot x_d$$
+
+#### Constraints
+1. **Demand Service or Blocking (Eq. 16)**:
+   Every demand is either assigned to exactly one candidate path and contiguous channel, or rejected:
+   $$\sum_{p \in P(d)} \sum_{c \in \mathcal{C}(d)} y_{p, c} + x_d = 1, \quad \forall d \in D$$
+
+2. **Non-Overlapping Slot Capacity Constraint (Eq. 17)**:
+   At most one optical signal may occupy frequency slot $s$ on physical link $e$ across all active lightpaths:
+   $$\sum_{d \in D} \sum_{p \in P(d)} \sum_{c \in \mathcal{C}(d)} \gamma_{c, s} \cdot \delta_{p, e} \cdot y_{p, c} \le 1, \quad \forall e \in E, \forall s \in S$$
+
+---
+
+### 4. Comparison with Reference Formulations
+
+| Formulation | Contiguity Mechanism | Primary Variables | Complexity & Scalability |
+| :--- | :--- | :--- | :--- |
+| **SSA (Starting Slot Assignment, Eqs. 2-9)** | Pairwise Big-M ordering variables $f_{d1, d2}$ and integer slot counters $f_d$. | $O(\|D\|^2 + \|D\| \cdot k)$ | Extremely slow solver runtime; Big-M constraints cause weak LP relaxations. |
+| **SA (Slots Assignment, Eqs. 10-14)** | Slot-transition constraints $-|S|(y_{p, s} - y_{p, s+1} - 1) \ge \sum_{s2} y_{p, s2}$. | $O(\|D\| \cdot k \cdot \|S\|)$ | Enormous constraint count $O(\|D\| \cdot k \cdot \|S\|)$; slow branch-and-bound convergence. |
+| **LP-CA (Proposed, Eqs. 15-17)** | **Pre-computed channel sets $\mathcal{C}(d)$ and coincidence matrix $\gamma_{c, s}$**. | $O(\|D\| \cdot k \cdot (\|S\| - n_d))$ | **Up to $100\times$ faster runtime**; compact constraint matrix; eliminates Big-M logic entirely. |
+| **Relaxed Link-Path RSA (Eqs. 24-25)** | Relaxes both continuity and contiguity constraints to aggregate link slot volume $\sum n_d \cdot y_p \le \|S\|$. | $O(\|D\| \cdot k)$ | Fast polynomial lower-bound solver used to benchmark optimality gaps. |
