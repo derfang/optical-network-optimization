@@ -1,0 +1,31 @@
+=== Question 1: Beverage Blending Optimization Results ===
+
+Part (a): Continuous Linear Program (LP)
+- Optimal Drink A: 0.625 L
+- Optimal Drink B: 0.375 L
+- Total Volume: 1.000 L (Cup constraint active)
+- Total Cost: $10.00 (Budget constraint active)
+- Total Pure Juice: 0.125 L
+
+Part (b1): Continuous LP Relaxation + Floor Rounding
+- Packs Drink A: 6 (0.60 L)
+- Packs Drink B: 3 (0.30 L)
+- Total Volume: 0.900 L
+- Total Cost: $8.40
+- Total Pure Juice: 0.108 L
+- Observation: Suboptimal due to naive rounding truncation.
+
+Part (b2): Breadth-First Search (BFS) Discrete State Space Search
+- Packs Drink A: 5 (0.50 L)
+- Packs Drink B: 4 (0.40 L)
+- Total Volume: 0.900 L
+- Total Cost: $10.00
+- Total Pure Juice: 0.120 L
+
+Part (b3): CVXPY Branch-and-Bound Mixed-Integer Linear Program (MILP)
+- Packs Drink A: 5 (0.50 L)
+- Packs Drink B: 4 (0.40 L)
+- Total Volume: 0.900 L
+- Total Cost: $10.00
+- Total Pure Juice: 0.120 L
+- Verification: Exact match with BFS global discrete optimum.
