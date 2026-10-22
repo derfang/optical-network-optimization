@@ -147,18 +147,6 @@ Optimizes destination subsets $D_r \subseteq C_r$ ($|D_r| = k_r$) for 5 manycast
 
 ---
 
-## 💼 Resume & Portfolio Ready Bullet Points
-
-```markdown
-- Architected and implemented an end-to-end Optical Network Optimization framework in Python (SciPy HiGHS, CVXPY, NetworkX), formulating exact ILP/MILP models for WDM Routing & Wavelength Assignment (RWA) and Flex-Grid Routing & Spectrum Allocation (RSA).
-- Reproduced state-of-the-art Flex-Grid RSA formulations (Velasco et al., 2012), validating precomputed contiguous channel generation (LP-CA) that achieved up to 12x speedup over Big-M slot-assignment models on a 21-node backbone.
-- Engineered a high-throughput semi-static heuristic network planner with distance-adaptive coherent modulation (16-QAM to BPSK) on a 12-node 20-link carrier topology, provisioning 84.9 Tbps of traffic under a strict 1% blocking threshold.
-- Proved theoretical cut-capacity limits on multi-hop optical networks and reduced peak spectrum utilization by 16.7% using Yen's K-shortest link-disjoint path algorithms.
-- Formulated a Manycast RWA ILP with joint destination subset selection, balancing traffic across incident fiber links and bypassing high-latency bottleneck paths.
-```
-
----
-
 ## ⚡ Quick Start & Execution
 
 ```bash
