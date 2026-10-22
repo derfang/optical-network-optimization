@@ -6,15 +6,15 @@
 [![Formulation: CVXPY / PuLP](https://img.shields.io/badge/Optimization-CVXPY%20%7C%20PuLP-green.svg)](https://www.cvxpy.org/)
 [![Graph: NetworkX](https://img.shields.io/badge/Graph-NetworkX-orange.svg)](https://networkx.org/)
 
-A production-grade algorithmic and mathematical optimization framework for **Wavelength Division Multiplexing (WDM) Routing and Wavelength Assignment (RWA)**, **Manycast RWA**, and **Elastic Optical Network (EON) / Flex-Grid Routing and Spectrum Allocation (RSA)**.
+This repository contains the comprehensive coursework and research reproduction framework developed for the graduate-level **Optical Communication Networks** course. It implements and benchmarks exact Mixed-Integer Linear Programming (MILP/ILP) models and dynamic heuristics for **Wavelength Division Multiplexing (WDM) Routing and Wavelength Assignment (RWA)**, **Manycast RWA**, and **Elastic Optical Network (EON) / Flex-Grid Routing and Spectrum Allocation (RSA)**.
 
-Authored by **[Erfan Ghasry (derfang)](https://github.com/derfang)**.
+**Graduate Coursework Project** | Authored by **[Erfan Ghasry (derfang)](https://github.com/derfang)**
 
 ---
 
-## 📌 Executive Summary & Key Highlights
+## 📌 Project Overview & Key Highlights
 
-This repository contains an end-to-end suite of exact Mixed-Integer Linear Programming (MILP/ILP) formulations and large-scale heuristics for modern optical communication backbones:
+This project explores exact mathematical programming formulations and carrier-scale heuristic simulations across 6 core course problem sets and research milestones:
 
 - **Paper Reproduction (*Velasco et al. 2012*)**: Implemented and benchmarked the Link-Path Channel Assignment (LP-CA) model from *Photonic Network Communications*, reproducing Table 1, Table 3, and Figures 2–3 on the 14-node DT and 21-node Spanish Telefónica backbones.
 - **Sparse Vectorized HiGHS Engine**: Engineered constraint matrices directly with `scipy.sparse.csc_matrix` and the HiGHS C++ branch-and-bound solver, eliminating Python compilation overhead and achieving over **$12\times$ faster convergence** than traditional Starting Slot (SSA) and Slot Assignment (SA) models.
