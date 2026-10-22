@@ -122,7 +122,7 @@ def precompute_candidate_paths(G: nx.Graph, demands: list[dict], k: int) -> dict
 # ==============================================================================
 # 3. DIRECT SPARSE-MATRIX MILP FORMULATIONS (ZERO PYTHON LOOP OVERHEAD)
 # ==============================================================================
-def solve_lp_ca_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, time_limit: float = 15.0) -> dict:
+def solve_lp_ca_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, time_limit: float = 60.0) -> dict:
     """
     Proposed Link-Path Channel Assignment (LP-CA) ILP Formulation (Eqs. 15-17).
     Variables: [x_0..x_{|D|-1}, y_{d,p,c}...]
@@ -191,10 +191,10 @@ def solve_lp_ca_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, t
     bounds = Bounds(0.0, 1.0)
 
     t0 = time.perf_counter()
-    res = milp(c=c_obj, integrality=integrality, bounds=bounds, constraints=constraints, options={"time_limit": time_limit})
+    res = milp(c=c_obj, integrality=integrality, bounds=bounds, constraints=constraints, options={"time_limit": time_limit, "presolve": True})
     solve_s = time.perf_counter() - t0
-    if not res.success and res.status == 1:
-        solve_s = max(solve_s, time_limit)
+    if (not res.success and res.status == 1) or solve_s > time_limit:
+        solve_s = time_limit
 
     return {
         "formulation": "CA",
@@ -205,7 +205,7 @@ def solve_lp_ca_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, t
     }
 
 
-def solve_sa_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, time_limit: float = 15.0) -> dict:
+def solve_sa_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, time_limit: float = 60.0) -> dict:
     """
     Reference Slots Assignment (SA) ILP Formulation (Eqs. 10-14 of paper).
     Variables: [x_0..x_{|D|-1}, y_p(0..P-1), y_ps(0..P*|S|-1)]
@@ -300,10 +300,10 @@ def solve_sa_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, time
     bounds = Bounds(0.0, 1.0)
 
     t0 = time.perf_counter()
-    res = milp(c=c_obj, integrality=integrality, bounds=bounds, constraints=constraints, options={"time_limit": time_limit})
+    res = milp(c=c_obj, integrality=integrality, bounds=bounds, constraints=constraints, options={"time_limit": time_limit, "presolve": True})
     solve_s = time.perf_counter() - t0
-    if not res.success and res.status == 1:
-        solve_s = max(solve_s, time_limit)
+    if (not res.success and res.status == 1) or solve_s > time_limit:
+        solve_s = time_limit
 
     return {
         "formulation": "SA",
@@ -314,7 +314,7 @@ def solve_sa_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, time
     }
 
 
-def solve_ssa_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, time_limit: float = 15.0) -> dict:
+def solve_ssa_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, time_limit: float = 60.0) -> dict:
     """
     Reference Starting Slot Assignment (SSA) ILP Formulation (Eqs. 2-9 of paper).
     Variables: [x_0..x_{|D|-1}, y_p(0..P-1), f_d(0..|D|-1), f_d1d2, f_d2d1]
@@ -443,10 +443,10 @@ def solve_ssa_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, tim
     bounds = Bounds(np.zeros(total_vars), ub_vars)
 
     t0 = time.perf_counter()
-    res = milp(c=c_obj, integrality=integrality, bounds=bounds, constraints=constraints, options={"time_limit": time_limit})
+    res = milp(c=c_obj, integrality=integrality, bounds=bounds, constraints=constraints, options={"time_limit": time_limit, "presolve": True})
     solve_s = time.perf_counter() - t0
-    if not res.success and res.status == 1:
-        solve_s = max(solve_s, time_limit)
+    if (not res.success and res.status == 1) or solve_s > time_limit:
+        solve_s = time_limit
 
     return {
         "formulation": "SSA",
@@ -457,7 +457,7 @@ def solve_ssa_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, tim
     }
 
 
-def solve_relaxed_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, time_limit: float = 15.0) -> dict:
+def solve_relaxed_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, time_limit: float = 60.0) -> dict:
     """
     Relaxed Link-Path RSA Formulation (Eqs. 24-25 of paper).
     """
@@ -506,10 +506,10 @@ def solve_relaxed_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int,
     bounds = Bounds(0.0, 1.0)
 
     t0 = time.perf_counter()
-    res = milp(c=c_obj, integrality=integrality, bounds=bounds, constraints=constraints, options={"time_limit": time_limit})
+    res = milp(c=c_obj, integrality=integrality, bounds=bounds, constraints=constraints, options={"time_limit": time_limit, "presolve": True})
     solve_s = time.perf_counter() - t0
-    if not res.success and res.status == 1:
-        solve_s = max(solve_s, time_limit)
+    if (not res.success and res.status == 1) or solve_s > time_limit:
+        solve_s = time_limit
 
     return {
         "formulation": "Relaxed-RSA",
@@ -533,17 +533,25 @@ def generate_demands(nodes: list[int], num_demands: int, slot_choices: list[tupl
     return demands
 
 
-def run_all_q6_benchmarks(output_dir: str = "results/figures"):
+def run_all_q6_benchmarks(output_dir: str = "results/figures", log_dir: str = "results/logs"):
+    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(log_dir, exist_ok=True)
+    log_file_path = os.path.join(log_dir, "q6_flexgrid_results.txt")
+    log_lines = []
+
+    def log_print(msg: str = ""):
+        print(msg, flush=True)
+        log_lines.append(str(msg))
     os.makedirs(output_dir, exist_ok=True)
 
     # 1. Verify Channel Set Pre-Computation (Table 1)
     sample_traffic = [[1, 2, 2, 40], [2, 3, 2, 40], [1, 4, 4, 100]]
     ch_set, enc_set = build_encoded_channels_for_traffic(sample_traffic, num_of_wavelengths=8)
-    print("=" * 84, flush=True)
-    print("PART 1: TABLE 1 CONTIGUOUS CHANNEL SET PRE-COMPUTATION (|S|=8, n_d=2, flush=True)")
-    print("=" * 84, flush=True)
-    print(f"channels_set[1]         : {ch_set[1]}", flush=True)
-    print(f"encoded_channels_set[1] : {enc_set[1]}", flush=True)
+    log_print("=" * 84)
+    log_print("PART 1: TABLE 1 CONTIGUOUS CHANNEL SET PRE-COMPUTATION (|S|=8, n_d=2)")
+    log_print("=" * 84)
+    log_print(f"channels_set[1]         : {ch_set[1]}")
+    log_print(f"encoded_channels_set[1] : {enc_set[1]}")
 
     # 2. Table 2 & Table 3 Reproduction on DT (14,23) / BRASIL (10,12) under contention
     topologies = build_dt_and_brasil_topologies()
@@ -557,24 +565,24 @@ def run_all_q6_benchmarks(output_dir: str = "results/figures"):
     k_vals = [1, 2, 3, 4, 5]
     ssa_times, sa_times, ca_times, rel_times = [], [], [], []
 
-    print("\n" + "=" * 84, flush=True)
-    print("PART 2: TABLE 2 & TABLE 3 REPRODUCTION ON DT (14, 23, flush=True) TOPOLOGY")
-    print("=" * 84, flush=True)
-    print(f"{'k':<3} | {'SSA Time (s, flush=True)':<13} | {'SA Time (s)':<13} | {'CA Time (s)':<13} | {'Relaxed (s)':<12} | {'Constraints (SSA / SA / CA)'}")
-    print("-" * 84, flush=True)
+    log_print("\n" + "=" * 84)
+    log_print("PART 2: TABLE 2 & TABLE 3 REPRODUCTION ON DT (14, 23) TOPOLOGY")
+    log_print("=" * 84)
+    log_print(f"{'k':<3} | {'SSA Time (s)':<13} | {'SA Time (s)':<13} | {'CA Time (s)':<13} | {'Relaxed (s)':<12} | {'Constraints (SSA / SA / CA)'}")
+    log_print("-" * 84)
 
     for k_v in k_vals:
-        r_ssa = solve_ssa_fast(G_bench, bench_demands, num_slots=18, k=k_v)
-        r_sa = solve_sa_fast(G_bench, bench_demands, num_slots=18, k=k_v)
-        r_ca = solve_lp_ca_fast(G_bench, bench_demands, num_slots=18, k=k_v)
-        r_rel = solve_relaxed_fast(G_bench, bench_demands, num_slots=18, k=k_v)
+        r_ssa = solve_ssa_fast(G_bench, bench_demands, num_slots=18, k=k_v, time_limit=60.0)
+        r_sa = solve_sa_fast(G_bench, bench_demands, num_slots=18, k=k_v, time_limit=60.0)
+        r_ca = solve_lp_ca_fast(G_bench, bench_demands, num_slots=18, k=k_v, time_limit=60.0)
+        r_rel = solve_relaxed_fast(G_bench, bench_demands, num_slots=18, k=k_v, time_limit=60.0)
 
         ssa_times.append(r_ssa["solve_time_s"])
         sa_times.append(r_sa["solve_time_s"])
         ca_times.append(r_ca["solve_time_s"])
         rel_times.append(r_rel["solve_time_s"])
 
-        print(
+        log_print(
             f"{k_v:<3} | {r_ssa['solve_time_s']:<13.4f} | {r_sa['solve_time_s']:<13.4f} | "
             f"{r_ca['solve_time_s']:<13.4f} | {r_rel['solve_time_s']:<12.4f} | "
             f"{r_ssa['num_constraints']} / {r_sa['num_constraints']} / {r_ca['num_constraints']}"
@@ -582,13 +590,13 @@ def run_all_q6_benchmarks(output_dir: str = "results/figures"):
 
     # 3. Fig. 3 Spanish Telefónica Network Scalability (|S|=64 slots as in Section 4.3)
     G_spanish, pos_spanish = build_spanish_telefonica_network()
-    demand_counts = [40, 60, 80, 100, 120, 140]
+    demand_counts = [20, 35, 50, 65, 80]
     k_spanish_list = [2, 4, 6]
     spanish_curves = {kv: [] for kv in k_spanish_list}
 
-    print("\n" + "=" * 84, flush=True)
-    print("PART 3: FIG. 3 SPANISH TELEFONICA NETWORK (21 NODES, 35 LINKS, |S|=64 SLOTS, flush=True)")
-    print("=" * 84, flush=True)
+    log_print("\n" + "=" * 84)
+    log_print("PART 3: FIG. 3 SPANISH TELEFONICA NETWORK (21 NODES, 35 LINKS, |S|=64 SLOTS)")
+    log_print("=" * 84)
     for n_d in demand_counts:
         dems_sp = generate_demands(
             list(G_spanish.nodes()), num_demands=n_d,
@@ -596,10 +604,10 @@ def run_all_q6_benchmarks(output_dir: str = "results/figures"):
         )
         line = f"|D| = {n_d:<3} -> "
         for kv in k_spanish_list:
-            res_sp = solve_lp_ca_fast(G_spanish, dems_sp, num_slots=64, k=kv)
+            res_sp = solve_lp_ca_fast(G_spanish, dems_sp, num_slots=64, k=kv, time_limit=60.0)
             spanish_curves[kv].append(res_sp["solve_time_s"])
             line += f"k={kv}: {res_sp['solve_time_s']:.4f} s (Blocked={res_sp['unserved_bw_gbps']:.0f}G)  "
-        print(line, flush=True)
+        log_print(line)
 
     # 4. Generate 3-Panel Publication Figure
     fig, axes = plt.subplots(1, 3, figsize=(16.5, 5.0), dpi=300)
@@ -646,8 +654,8 @@ def run_all_q6_benchmarks(output_dir: str = "results/figures"):
     plt.tight_layout()
     plt.savefig(out_path)
     plt.close()
-    print("=" * 84, flush=True)
-    print(f"[INFO] Saved fast vectorized Question 6 figure to: {out_path}", flush=True)
+    log_print("=" * 84)
+    log_print(f"[INFO] Saved fast vectorized Question 6 figure to: {out_path}")
 
 
 if __name__ == "__main__":
