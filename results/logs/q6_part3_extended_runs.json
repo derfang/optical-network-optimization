@@ -1,0 +1,92 @@
+{
+  "20_2": {
+    "nd": 20,
+    "k": 2,
+    "solve_time_s": 1.5941,
+    "unserved_bw_gbps": 0.0
+  },
+  "20_4": {
+    "nd": 20,
+    "k": 4,
+    "solve_time_s": 5.9953,
+    "unserved_bw_gbps": 0.0
+  },
+  "20_6": {
+    "nd": 20,
+    "k": 6,
+    "solve_time_s": 13.7442,
+    "unserved_bw_gbps": 0.0
+  },
+  "35_2": {
+    "nd": 35,
+    "k": 2,
+    "solve_time_s": 4.4767,
+    "unserved_bw_gbps": 0.0
+  },
+  "35_4": {
+    "nd": 35,
+    "k": 4,
+    "solve_time_s": 17.8919,
+    "unserved_bw_gbps": 0.0
+  },
+  "35_6": {
+    "nd": 35,
+    "k": 6,
+    "solve_time_s": 39.9094,
+    "unserved_bw_gbps": 0.0
+  },
+  "50_2": {
+    "nd": 50,
+    "k": 2,
+    "solve_time_s": 9.3735,
+    "unserved_bw_gbps": 0.0
+  },
+  "50_4": {
+    "nd": 50,
+    "k": 4,
+    "solve_time_s": 37.4334,
+    "unserved_bw_gbps": 0.0
+  },
+  "50_6": {
+    "nd": 50,
+    "k": 6,
+    "solve_time_s": 165.5334,
+    "unserved_bw_gbps": 0.0
+  },
+  "65_2": {
+    "nd": 65,
+    "k": 2,
+    "solve_time_s": 15.2105,
+    "unserved_bw_gbps": 0.0
+  },
+  "65_4": {
+    "nd": 65,
+    "k": 4,
+    "solve_time_s": 65.5891,
+    "unserved_bw_gbps": 0.0
+  },
+  "65_6": {
+    "nd": 65,
+    "k": 6,
+    "solve_time_s": 143.7263,
+    "unserved_bw_gbps": 0.0
+  },
+  "80_2": {
+    "nd": 80,
+    "k": 2,
+    "solve_time_s": 24.0865,
+    "unserved_bw_gbps": 0.0
+  },
+  "80_4": {
+    "nd": 80,
+    "k": 4,
+    "solve_time_s": 99.8104,
+    "unserved_bw_gbps": 0.0
+  },
+  "80_6": {
+    "nd": 80,
+    "k": 6,
+    "solve_time_s": 227.9876,
+    "unserved_bw_gbps": 0.0
+  }
+}

@@ -15,6 +15,7 @@ Author: Erfan Ghasry
 """
 
 import os
+import json
 import time
 import random
 from itertools import islice
@@ -122,7 +123,7 @@ def precompute_candidate_paths(G: nx.Graph, demands: list[dict], k: int) -> dict
 # ==============================================================================
 # 3. DIRECT SPARSE-MATRIX MILP FORMULATIONS (ZERO PYTHON LOOP OVERHEAD)
 # ==============================================================================
-def solve_lp_ca_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, time_limit: float = 60.0) -> dict:
+def solve_lp_ca_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, time_limit: float = 300.0) -> dict:
     """
     Proposed Link-Path Channel Assignment (LP-CA) ILP Formulation (Eqs. 15-17).
     Variables: [x_0..x_{|D|-1}, y_{d,p,c}...]
@@ -205,7 +206,7 @@ def solve_lp_ca_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, t
     }
 
 
-def solve_sa_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, time_limit: float = 60.0) -> dict:
+def solve_sa_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, time_limit: float = 300.0) -> dict:
     """
     Reference Slots Assignment (SA) ILP Formulation (Eqs. 10-14 of paper).
     Variables: [x_0..x_{|D|-1}, y_p(0..P-1), y_ps(0..P*|S|-1)]
@@ -314,7 +315,7 @@ def solve_sa_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, time
     }
 
 
-def solve_ssa_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, time_limit: float = 60.0) -> dict:
+def solve_ssa_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, time_limit: float = 300.0) -> dict:
     """
     Reference Starting Slot Assignment (SSA) ILP Formulation (Eqs. 2-9 of paper).
     Variables: [x_0..x_{|D|-1}, y_p(0..P-1), f_d(0..|D|-1), f_d1d2, f_d2d1]
@@ -457,7 +458,7 @@ def solve_ssa_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, tim
     }
 
 
-def solve_relaxed_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, time_limit: float = 60.0) -> dict:
+def solve_relaxed_fast(G: nx.Graph, demands: list[dict], num_slots: int, k: int, time_limit: float = 300.0) -> dict:
     """
     Relaxed Link-Path RSA Formulation (Eqs. 24-25 of paper).
     """
@@ -533,7 +534,7 @@ def generate_demands(nodes: list[int], num_demands: int, slot_choices: list[tupl
     return demands
 
 
-def run_all_q6_benchmarks(output_dir: str = "results/figures", log_dir: str = "results/logs"):
+def run_all_q6_benchmarks(output_dir: str = "results/figures", log_dir: str = "results/logs", time_limit: float = 300.0, use_cache: bool = True):
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
     log_file_path = os.path.join(log_dir, "q6_flexgrid_results.txt")
@@ -571,21 +572,36 @@ def run_all_q6_benchmarks(output_dir: str = "results/figures", log_dir: str = "r
     log_print(f"{'k':<3} | {'SSA Time (s)':<13} | {'SA Time (s)':<13} | {'CA Time (s)':<13} | {'Relaxed (s)':<12} | {'Constraints (SSA / SA / CA)'}")
     log_print("-" * 84)
 
-    for k_v in k_vals:
-        r_ssa = solve_ssa_fast(G_bench, bench_demands, num_slots=18, k=k_v, time_limit=60.0)
-        r_sa = solve_sa_fast(G_bench, bench_demands, num_slots=18, k=k_v, time_limit=60.0)
-        r_ca = solve_lp_ca_fast(G_bench, bench_demands, num_slots=18, k=k_v, time_limit=60.0)
-        r_rel = solve_relaxed_fast(G_bench, bench_demands, num_slots=18, k=k_v, time_limit=60.0)
+    part2_cache_file = os.path.join(log_dir, "q6_part2_benchmark.json")
+    cached_part2 = {}
+    if use_cache and os.path.exists(part2_cache_file):
+        try:
+            with open(part2_cache_file, "r", encoding="utf-8") as f:
+                cached_part2 = json.load(f)
+        except Exception:
+            cached_part2 = {}
 
-        ssa_times.append(r_ssa["solve_time_s"])
-        sa_times.append(r_sa["solve_time_s"])
-        ca_times.append(r_ca["solve_time_s"])
-        rel_times.append(r_rel["solve_time_s"])
+    for k_v in k_vals:
+        k_str = str(k_v)
+        if use_cache and k_str in cached_part2:
+            row = cached_part2[k_str]
+            ssa_t, sa_t, ca_t, rel_t = row["ssa_time_s"], row["sa_time_s"], row["ca_time_s"], row["rel_time_s"]
+            const_str = row["constraints"]
+        else:
+            r_ssa = solve_ssa_fast(G_bench, bench_demands, num_slots=18, k=k_v, time_limit=time_limit)
+            r_sa = solve_sa_fast(G_bench, bench_demands, num_slots=18, k=k_v, time_limit=time_limit)
+            r_ca = solve_lp_ca_fast(G_bench, bench_demands, num_slots=18, k=k_v, time_limit=time_limit)
+            r_rel = solve_relaxed_fast(G_bench, bench_demands, num_slots=18, k=k_v, time_limit=time_limit)
+            ssa_t, sa_t, ca_t, rel_t = r_ssa["solve_time_s"], r_sa["solve_time_s"], r_ca["solve_time_s"], r_rel["solve_time_s"]
+            const_str = f"{r_ssa['num_constraints']} / {r_sa['num_constraints']} / {r_ca['num_constraints']}"
+
+        ssa_times.append(ssa_t)
+        sa_times.append(sa_t)
+        ca_times.append(ca_t)
+        rel_times.append(rel_t)
 
         log_print(
-            f"{k_v:<3} | {r_ssa['solve_time_s']:<13.4f} | {r_sa['solve_time_s']:<13.4f} | "
-            f"{r_ca['solve_time_s']:<13.4f} | {r_rel['solve_time_s']:<12.4f} | "
-            f"{r_ssa['num_constraints']} / {r_sa['num_constraints']} / {r_ca['num_constraints']}"
+            f"{k_v:<3} | {ssa_t:<13.4f} | {sa_t:<13.4f} | {ca_t:<13.4f} | {rel_t:<12.4f} | {const_str}"
         )
 
     # 3. Fig. 3 Spanish Telefónica Network Scalability (|S|=64 slots as in Section 4.3)
@@ -593,6 +609,15 @@ def run_all_q6_benchmarks(output_dir: str = "results/figures", log_dir: str = "r
     demand_counts = [20, 35, 50, 65, 80]
     k_spanish_list = [2, 4, 6]
     spanish_curves = {kv: [] for kv in k_spanish_list}
+
+    part3_cache_file = os.path.join(log_dir, "q6_part3_extended_runs.json")
+    cached_part3 = {}
+    if use_cache and os.path.exists(part3_cache_file):
+        try:
+            with open(part3_cache_file, "r", encoding="utf-8") as f:
+                cached_part3 = json.load(f)
+        except Exception:
+            cached_part3 = {}
 
     log_print("\n" + "=" * 84)
     log_print("PART 3: FIG. 3 SPANISH TELEFONICA NETWORK (21 NODES, 35 LINKS, |S|=64 SLOTS)")
@@ -604,7 +629,11 @@ def run_all_q6_benchmarks(output_dir: str = "results/figures", log_dir: str = "r
         )
         line = f"|D| = {n_d:<3} -> "
         for kv in k_spanish_list:
-            res_sp = solve_lp_ca_fast(G_spanish, dems_sp, num_slots=64, k=kv, time_limit=60.0)
+            cache_key = f"{n_d}_{kv}"
+            if use_cache and cache_key in cached_part3:
+                res_sp = cached_part3[cache_key]
+            else:
+                res_sp = solve_lp_ca_fast(G_spanish, dems_sp, num_slots=64, k=kv, time_limit=time_limit)
             spanish_curves[kv].append(res_sp["solve_time_s"])
             line += f"k={kv}: {res_sp['solve_time_s']:.4f} s (Blocked={res_sp['unserved_bw_gbps']:.0f}G)  "
         log_print(line)

@@ -20,8 +20,8 @@ PART 3: FIG. 3 SPANISH TELEFONICA NETWORK (21 NODES, 35 LINKS, |S|=64 SLOTS)
 ====================================================================================
 |D| = 20  -> k=2: 1.5941 s (Blocked=0G)  k=4: 5.9953 s (Blocked=0G)  k=6: 13.7442 s (Blocked=0G)  
 |D| = 35  -> k=2: 4.4767 s (Blocked=0G)  k=4: 17.8919 s (Blocked=0G)  k=6: 39.9094 s (Blocked=0G)  
-|D| = 50  -> k=2: 9.3735 s (Blocked=0G)  k=4: 37.4334 s (Blocked=0G)  k=6: 60.0000 s (Blocked=0G)  
-|D| = 65  -> k=2: 15.2105 s (Blocked=0G)  k=4: 60.0000 s (Blocked=0G)  k=6: 60.0000 s (Blocked=0G)  
-|D| = 80  -> k=2: 24.0865 s (Blocked=0G)  k=4: 60.0000 s (Blocked=0G)  k=6: 60.0000 s (Blocked=0G)  
+|D| = 50  -> k=2: 9.3735 s (Blocked=0G)  k=4: 37.4334 s (Blocked=0G)  k=6: 165.5334 s (Blocked=0G)  
+|D| = 65  -> k=2: 15.2105 s (Blocked=0G)  k=4: 65.5891 s (Blocked=0G)  k=6: 143.7263 s (Blocked=0G)  
+|D| = 80  -> k=2: 24.0865 s (Blocked=0G)  k=4: 99.8104 s (Blocked=0G)  k=6: 227.9876 s (Blocked=0G)  
 ====================================================================================
 [INFO] Saved fast vectorized Question 6 figure to: results/figures\q6_flexgrid_velasco_results.png
