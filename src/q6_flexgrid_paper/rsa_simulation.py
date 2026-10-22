@@ -656,6 +656,9 @@ def run_all_q6_benchmarks(output_dir: str = "results/figures", log_dir: str = "r
     plt.close()
     log_print("=" * 84)
     log_print(f"[INFO] Saved fast vectorized Question 6 figure to: {out_path}")
+    with open(log_file_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(log_lines) + "\n")
+    log_print(f"[INFO] Saved Question 6 benchmark log to: {log_file_path}")
 
 
 if __name__ == "__main__":
